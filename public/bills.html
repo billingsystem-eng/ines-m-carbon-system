@@ -88,12 +88,18 @@ async function load() {
     : '<div class="empty">No billing periods match these filters.</div>';
   document.querySelectorAll('.remove-bill').forEach((btn) => {
     btn.onclick = () => removeBill(Number(btn.dataset.id), btn.dataset.statement);
-  });  
+  });
+  document.querySelectorAll('.delete-bill').forEach((btn) => {
+    btn.onclick = () => deleteBill(Number(btn.dataset.id), btn.dataset.statement);
+  });
   if (readOnly(me)) disableEditing();
 }
 
 function removeCell(b, me) {
-  if (b.status === 'void') return '';
+  if (b.status === 'void') {
+    if (me?.role !== 'admin') return `<button class="quiet" disabled title="Only an administrator can delete a billing period.">Delete</button>`;
+    return `<button class="quiet danger delete-bill" data-edit data-id="${b.id}" data-statement="${esc(b.statement_no)}">Delete</button>`;
+  }
   if (['final', 'issued'].includes(b.status)) {
     return `<button class="quiet" disabled title="Final and issued bills can’t be removed — open it and create a revision instead.">Remove</button>`;
   }
@@ -110,6 +116,15 @@ async function removeBill(id, statementNo) {
   try {
     await api(`/api/bills/${id}/status`, { method: 'POST', body: { status: 'void', reason: reason.trim() } });
     toast('Billing period removed');
+    await load();
+  } catch (e) { toast(e.message, true); }
+}
+
+async function deleteBill(id, statementNo) {
+  if (!confirm(`Permanently delete ${statementNo}?\n\nThis erases the bill and its daily data. It can’t be undone (a line stays in the activity log).`)) return;
+  try {
+    await api(`/api/bills/${id}`, { method: 'DELETE' });
+    toast('Billing period deleted');
     await load();
   } catch (e) { toast(e.message, true); }
 }

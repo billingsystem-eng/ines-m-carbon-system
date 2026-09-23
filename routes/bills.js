@@ -323,6 +323,29 @@ router.post('/:id/revise', canEdit, (req, res) => {
   res.json({ id, statement_no: statementNo });
 });
 
+// --- Permanently delete a voided bill (admin only) ---
+
+router.delete('/:id', canEdit, (req, res) => {
+  if (req.session.role !== 'admin') return res.status(403).json({ error: 'Only an administrator can delete a bill.' });
+  const bill = db.prepare('SELECT * FROM bills WHERE id = ?').get(req.params.id);
+  if (!bill) return res.status(404).json({ error: 'Bill not found.' });
+  if (bill.status !== 'void') {
+    return res.status(400).json({ error: 'Only a void bill can be deleted. Remove (void) it first.' });
+  }
+  const child = db.prepare('SELECT statement_no FROM bills WHERE revises_bill_id = ?').get(bill.id);
+  if (child) {
+    return res.status(400).json({ error: `Can’t delete — ${child.statement_no} is a revision of this bill.` });
+  }
+  const paid = db.prepare('SELECT COUNT(*) n FROM payments WHERE bill_id = ?').get(bill.id).n;
+  if (paid) return res.status(400).json({ error: 'Can’t delete a bill that has recorded payments.' });
+
+  db.transaction(() => {
+    db.prepare('DELETE FROM bills WHERE id = ?').run(bill.id); // bill_days, payments, adjustments cascade
+    audit.log(req, 'bill', bill.id, 'delete', `Permanently deleted void bill ${bill.statement_no} (${bill.period_start} to ${bill.period_end})`);
+  })();
+  res.json({ ok: true });
+});
+
 // --- Payments and adjustments ---
 
 router.post('/:id/payments', canEdit, (req, res) => {
