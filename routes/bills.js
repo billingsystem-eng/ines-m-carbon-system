@@ -336,12 +336,19 @@ router.delete('/:id', canEdit, (req, res) => {
   if (child) {
     return res.status(400).json({ error: `Can’t delete — ${child.statement_no} is a revision of this bill.` });
   }
-  const paid = db.prepare('SELECT COUNT(*) n FROM payments WHERE bill_id = ?').get(bill.id).n;
-  if (paid) return res.status(400).json({ error: 'Can’t delete a bill that has recorded payments.' });
+  const pay = db.prepare('SELECT COUNT(*) n, COALESCE(SUM(amount),0) total FROM payments WHERE bill_id = ?').get(bill.id);
+  if (pay.n && req.query.with_payments !== '1') {
+    return res.status(409).json({
+      error: `This bill has ${pay.n} recorded payment(s) totalling ${round(pay.total, 2)}.`,
+      code: 'has_payments', payment_count: pay.n, payment_total: round(pay.total, 2)
+    });
+  }
 
   db.transaction(() => {
     db.prepare('DELETE FROM bills WHERE id = ?').run(bill.id); // bill_days, payments, adjustments cascade
-    audit.log(req, 'bill', bill.id, 'delete', `Permanently deleted void bill ${bill.statement_no} (${bill.period_start} to ${bill.period_end})`);
+    audit.log(req, 'bill', bill.id, 'delete',
+      `Permanently deleted void bill ${bill.statement_no} (${bill.period_start} to ${bill.period_end})` +
+      (pay.n ? ` together with ${pay.n} recorded payment(s) totalling ${round(pay.total, 2)}` : ''));
   })();
   res.json({ ok: true });
 });

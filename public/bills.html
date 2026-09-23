@@ -123,10 +123,20 @@ async function removeBill(id, statementNo) {
 async function deleteBill(id, statementNo) {
   if (!confirm(`Permanently delete ${statementNo}?\n\nThis erases the bill and its daily data. It can’t be undone (a line stays in the activity log).`)) return;
   try {
-    await api(`/api/bills/${id}`, { method: 'DELETE' });
-    toast('Billing period deleted');
-    await load();
-  } catch (e) { toast(e.message, true); }
+    await sendDelete(id, false);
+  } catch (e) {
+    if (e.code !== 'has_payments') return toast(e.message, true);
+    if (!confirm(`${statementNo} has ${e.payment_count} recorded payment(s) totalling ${money(e.payment_total)}.\n\nDeleting will ERASE those payment records too. Delete anyway?`)) return;
+    try { await sendDelete(id, true); } catch (e2) { return toast(e2.message, true); }
+  }
+  toast('Billing period deleted');
+  await load();
+}
+
+async function sendDelete(id, withPayments) {
+  const res = await fetch(`/api/bills/${id}${withPayments ? '?with_payments=1' : ''}`, { method: 'DELETE' });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw Object.assign(new Error(data.error || 'Something went wrong. Try again.'), data);
 }
 
 document.getElementById('new').onclick = () => {
