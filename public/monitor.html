@@ -1,0 +1,629 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Live monitor — M-Carbon System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Schibsted+Grotesk:wght@400;500;600;700&family=Chivo+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/app.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="/js/ph-map.js"></script>
+<style>
+/* Live monitor. Everything is scoped under .ww so it cannot change the rest of the billing pages. */
+.ww {
+  --paper: #e6ecef;
+  --panel: #f7f9fa;
+  --ink: #14202b;
+  --muted: #5b6c7b;
+  --rule: #c4d0d8;
+  --line: #2b6b8c;
+  --line-soft: rgba(43, 107, 140, .14);
+  --meter: #1a1e22;
+  --digit: #f1f3f4;
+  --red: #d2321e;
+  --ok: #1c7d55;
+  --warn: #a36f00;
+  --bad: #b3372b;
+  --sans: "Schibsted Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --digits: "Chivo Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+.ww * { box-sizing: border-box; }
+.ww { margin: 0; }
+.ww {  color: var(--ink); font-family: var(--sans); font-size: 15px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+.ww [hidden] { display: none !important; }
+.ww button { font: inherit; color: inherit; cursor: pointer; }
+.ww :focus-visible { outline: 2px solid var(--line); outline-offset: 2px; }
+.ww .error { min-height: 22px; margin: 12px 0 0; color: var(--bad); font-size: 14px; }
+.ww .tabs { display: flex; gap: 4px; flex: 1; overflow-x: auto; scrollbar-width: none; }
+.ww .tabs::-webkit-scrollbar { display: none; }
+.ww .tab { border: 0; background: none; padding: 18px 14px 15px; border-bottom: 3px solid transparent; color: var(--muted); font-weight: 500; white-space: nowrap; }
+.ww .tab:hover { color: var(--ink); }
+.ww .tab[aria-selected="true"] { color: var(--ink); font-weight: 600; border-bottom-color: var(--red); }
+.ww .status { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--muted); white-space: nowrap; }
+.ww .status i { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); }
+.ww .status[data-state="ok"] i { background: var(--ok); animation: pulse 2s ease-out infinite; }
+.ww .status[data-state="retry"] i, .ww .status[data-state="fault"] i { background: var(--warn); }
+.ww .status[data-state="down"] i { background: var(--bad); }
+@keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(28,125,85,.45); } 70%, 100% { box-shadow: 0 0 0 8px rgba(28,125,85,0); } }
+.ww .hero { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 32px 56px; padding: 40px 0 36px; border-bottom: 1px solid var(--rule); }
+.ww .hero h1 { margin: 0; font-size: clamp(22px, 3vw, 30px); font-weight: 700; letter-spacing: -.02em; line-height: 1.15; }
+.ww .hero .where { margin: 2px 0 20px; color: var(--muted); }
+.ww .readout { display: flex; align-items: flex-end; gap: 14px; }
+.ww .register { display: flex; align-items: center; background: var(--meter); padding: 10px 12px; border-radius: 5px; gap: 3px; font-family: var(--digits); font-weight: 600; font-size: clamp(44px, 9vw, 84px); line-height: 1.25; box-shadow: inset 0 2px 6px rgba(0,0,0,.55); }
+.ww .cell { width: .68em; height: 1.25em; overflow: hidden; background: linear-gradient(#0e1114, #24292e 50%, #0e1114); color: var(--digit); border-radius: 2px; text-align: center; }
+.ww .cell.tenth { background: linear-gradient(#5f150b, #a3230f 50%, #5f150b); }
+.ww .strip { display: block; transition: transform .45s cubic-bezier(.3, .7, .2, 1); }
+.ww .strip b { display: block; height: 1.25em; font-weight: inherit; }
+.ww .register .dot { color: var(--digit); width: .3em; text-align: center; align-self: flex-end; line-height: 1.05; }
+.ww .unit { font-weight: 600; font-size: 20px; padding-bottom: 10px; color: var(--muted); }
+.ww .figures { display: flex; flex-wrap: wrap; }
+.ww .figure { padding: 0 32px; border-left: 1px solid var(--rule); }
+.ww .figure:first-child { padding-left: 0; border-left: 0; }
+.ww .figure .v { font-size: clamp(22px, 3vw, 30px); font-weight: 600; letter-spacing: -.02em; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.ww .figure .v small { font-size: 14px; font-weight: 500; color: var(--muted); letter-spacing: 0; margin-left: 4px; }
+.ww .figure .l { color: var(--muted); font-size: 14px; }
+.ww .block { padding: 32px 0; border-bottom: 1px solid var(--rule); }
+.ww .block:last-child { border-bottom: 0; }
+.ww .head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 16px; margin-bottom: 16px; }
+.ww .head h2 { margin: 0; font-size: 18px; font-weight: 600; letter-spacing: -.01em; }
+.ww .head p { margin: 0; color: var(--muted); font-size: 14px; }
+.ww .plot { position: relative; height: 250px; }
+.ww .plot.short { height: 300px; }
+.ww .split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 56px; }
+.ww .split .block { border-bottom: 0; }
+.ww .seg { display: inline-flex; border: 1px solid var(--rule); border-radius: 4px; overflow: hidden; background: var(--panel); }
+.ww .seg button { border: 0; background: none; padding: 6px 12px; font-size: 14px; color: var(--muted); }
+.ww .seg button + button { border-left: 1px solid var(--rule); }
+.ww .seg button[aria-pressed="true"] { background: var(--ink); color: #fff; }
+.ww table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.ww th { text-align: left; font-weight: 500; color: var(--muted); padding: 0 8px 8px 0; border-bottom: 1px solid var(--rule); }
+.ww td { padding: 11px 8px 11px 0; border-bottom: 1px solid var(--rule); vertical-align: middle; }
+.ww tr:last-child td { border-bottom: 0; }
+.ww td.num, .ww th.num { text-align: right; font-variant-numeric: tabular-nums; padding-right: 12px; }
+.ww .name { font-weight: 600; }
+.ww .type { display: block; color: var(--muted); font-weight: 400; }
+.ww .state { display: inline-flex; align-items: center; gap: 6px; }
+.ww .state::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--ok); }
+.ww .state.off { color: var(--bad); }
+.ww .state.off::before { background: var(--bad); }
+.ww .share { width: 30%; min-width: 70px; }
+.ww .share span { display: block; height: 8px; background: var(--line-soft); border-radius: 1px; }
+.ww .share span i { display: block; height: 100%; width: 0; background: var(--line); border-radius: 1px; transition: width .5s; }
+.ww .register.big { font-size: clamp(34px, 5.6vw, 66px); }
+.ww .figures.grid { display: grid; grid-template-columns: repeat(3, auto); gap: 22px 44px; }
+.ww .figures.grid .figure { padding: 0; border-left: 0; }
+.ww .ov { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 0 56px; border-bottom: 1px solid var(--rule); }
+.ww .ov .block { border-bottom: 0; }
+.ww .ov .right .block:first-child { padding-bottom: 8px; }
+.ww .mapwrap { position: relative; border-radius: 6px; border: 1px solid var(--rule); background: #d2e0e8; }
+.ww .mapwrap svg { display: block; width: 100%; height: auto; max-height: 760px; border-radius: 6px; }
+.ww .sea { fill: #d2e0e8; }
+.ww .land { fill: var(--panel); stroke: #8fa6b5; stroke-width: .6; stroke-linejoin: round; }
+.ww .pin { cursor: pointer; outline: none; }
+.ww .pin circle { fill: var(--red); fill-opacity: .88; stroke: #fff; stroke-width: 1.5; }
+.ww .pin.cluster circle { fill: var(--meter); fill-opacity: .93; }
+.ww .pin .count { fill: #fff; font: 600 15px var(--sans); text-anchor: middle; dominant-baseline: central; pointer-events: none; }
+.ww .pin:focus-visible circle { stroke: var(--line); stroke-width: 3; }
+.ww .plabel { font: 500 14px var(--sans); fill: var(--ink); paint-order: stroke; stroke: #fff; stroke-width: 4px; stroke-linejoin: round; }
+.ww .tip { position: absolute; z-index: 2; width: 340px; max-width: calc(100vw - 32px); padding: 10px 12px 12px; border-radius: 5px; background: var(--ink); color: #fff; font-size: 13px; transform: translate(-50%, -100%); pointer-events: none; box-shadow: 0 6px 18px rgba(20, 32, 43, .28); }
+.ww .tip.below { transform: translate(-50%, 0); }
+.ww .tip.sticky { pointer-events: auto; }
+.ww .tip strong { display: block; }
+.ww .tip > span { display: block; color: #b8c7d3; }
+.ww .tip button { display: flex; justify-content: space-between; align-items: baseline; gap: 14px; width: 100%; margin-top: 8px; padding: 8px 0 0; border: 0; border-top: 1px solid rgba(255, 255, 255, .18); background: none; color: #fff; text-align: left; font-size: 13px; }
+.ww .tip button span:last-child { color: #b8c7d3; white-space: nowrap; }
+.ww .tip.sticky button:hover span:first-child { text-decoration: underline; }
+.ww .cat { display: grid; grid-template-columns: 150px minmax(0, 1fr) 140px; align-items: center; gap: 14px; padding: 13px 0; border-bottom: 1px solid var(--rule); }
+.ww .cat:last-child { border-bottom: 0; }
+.ww .cat .share { width: auto; }
+.ww .cat .amt { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; font-weight: 600; }
+.ww .cat .amt small { font-weight: 400; color: var(--muted); }
+@media (max-width: 900px) {
+.ww .ov { grid-template-columns: 1fr; }
+.ww .figures.grid { grid-template-columns: 1fr 1fr; gap: 18px 20px; }
+.ww .figures.grid .figure:nth-child(3) { grid-column: auto; }
+.ww .split { grid-template-columns: 1fr; }
+.ww .hero { padding: 28px 0; }
+.ww .figures { display: grid; grid-template-columns: 1fr 1fr; gap: 18px 0; width: 100%; }
+.ww .figure { padding: 0 20px; }
+.ww .figure:nth-child(odd) { padding-left: 0; border-left: 0; }
+.ww .figure:nth-child(3) { grid-column: 1 / -1; padding: 0; border-left: 0; }
+.ww .tabs { order: 3; flex-basis: 100%; }
+.ww .status { padding-top: 14px; }
+}
+@media (prefers-reduced-motion: reduce) {
+.ww .strip, .ww .share span i { transition: none; }
+.ww .status[data-state="ok"] i { animation: none; }
+}
+.ww .tabs { border-bottom: 1px solid var(--rule); margin-bottom: 4px; }
+.ww .page-head .status { padding-top: 6px; }
+.ww .page-head { border-bottom: 0; }
+
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="rail"></aside>
+  <main class="ww">
+    <div class="page-head">
+      <div>
+        <h1>Live monitor</h1>
+        <p>Consumption and savings for every project site, read from the M-Carbon Dashboard.</p>
+      </div>
+      <div class="status" id="status" data-state="idle" role="status"><i></i><span id="statusText">Connecting</span></div>
+    </div>
+
+    <div class="notice warn" id="demoBanner" hidden>Sample data. This page is not reading from the M-Carbon Dashboard, so none of these figures are real. Set MONITOR_MODE=live on the server to use real readings.</div>
+    <div class="notice bad" id="notice" role="alert" hidden></div>
+
+    <div class="tabs" id="tabs" role="tablist" aria-label="Sites"></div>
+
+    <div id="overviewView" hidden>
+      <section class="hero">
+        <div>
+          <h1>Philippines</h1>
+          <p class="where">All monitored sites</p>
+          <div class="readout">
+            <div class="register big" id="regTotal" role="img" aria-label="Total energy saved"></div>
+            <span class="unit">kWh saved</span>
+          </div>
+        </div>
+        <div class="figures grid">
+          <div class="figure"><div class="v" id="oRate">-</div><div class="l">Savings rate, all time</div></div>
+          <div class="figure"><div class="v" id="oRateToday">-</div><div class="l">Savings rate today</div></div>
+          <div class="figure"><div class="v" id="oToday">-</div><div class="l">Saved today</div></div>
+          <div class="figure"><div class="v" id="oCo2">-</div><div class="l">CO₂ avoided, all time</div></div>
+          <div class="figure"><div class="v" id="oCo2Today">-</div><div class="l">CO₂ avoided today</div></div>
+          <div class="figure"><div class="v" id="oSites">-</div><div class="l">Sites</div></div>
+        </div>
+      </section>
+
+      <div class="ov">
+        <section class="block">
+          <div class="head"><h2>Where the sites are</h2><p>Circle size shows energy saved. Dark circles group nearby sites.</p></div>
+          <div class="mapwrap" id="mapWrap">
+            <svg id="phMap" role="group" aria-label="Map of the Philippines with monitored sites"></svg>
+            <div class="tip" id="mapTip" hidden></div>
+          </div>
+        </section>
+        <div class="right">
+          <section class="block">
+            <div class="head"><h2>Savings by area</h2><p>Since go-live</p></div>
+            <table>
+              <thead><tr><th>Area</th><th class="num">Saved, kWh</th><th class="num">Sites</th></tr></thead>
+              <tbody id="areas"></tbody>
+            </table>
+          </section>
+          <section class="block">
+            <div class="head"><h2>Last 24 hours</h2><p id="peak"></p></div>
+            <div class="plot"><canvas id="h24Chart"></canvas></div>
+          </section>
+        </div>
+      </div>
+
+      <div class="split">
+        <section class="block">
+          <div class="head"><h2>Before and after improvement</h2><p>Last 7 days, all sites</p></div>
+          <div class="plot short"><canvas id="ppChart"></canvas></div>
+        </section>
+        <section class="block">
+          <div class="head"><h2>Where the savings come from</h2><p>Since go-live</p></div>
+          <div id="cats"></div>
+        </section>
+      </div>
+    </div>
+
+    <div id="projectView" hidden>
+    <section class="hero">
+      <div>
+        <h1 id="pName">&nbsp;</h1>
+        <p class="where" id="pLoc">&nbsp;</p>
+        <div class="readout">
+          <div class="register" id="register" role="img" aria-label="Current load"></div>
+          <span class="unit">kW now</span>
+        </div>
+      </div>
+      <div class="figures">
+        <div class="figure"><div class="v" id="kToday">-</div><div class="l">Used today</div></div>
+        <div class="figure"><div class="v" id="k30">-</div><div class="l">Last 30 days</div></div>
+        <div class="figure"><div class="v" id="kCost">-</div><div class="l">Estimated cost, 30 days</div></div>
+      </div>
+    </section>
+
+    <section class="block">
+      <div class="head"><h2>Load in the last few minutes</h2><p id="onlineNote"></p></div>
+      <div class="plot"><canvas id="liveChart"></canvas></div>
+    </section>
+
+    <div class="split">
+      <section class="block">
+        <div class="head">
+          <h2>Energy used</h2>
+          <div class="seg" id="range">
+            <button type="button" data-range="day" aria-pressed="true">Today</button>
+            <button type="button" data-range="week" aria-pressed="false">7 days</button>
+            <button type="button" data-range="month" aria-pressed="false">30 days</button>
+          </div>
+        </div>
+        <div class="plot short"><canvas id="histChart"></canvas></div>
+      </section>
+
+      <section class="block">
+        <div class="head"><h2>Meters</h2><p>Share of the current load</p></div>
+        <table>
+          <thead><tr><th>Meter</th><th>Status</th><th class="num">kW</th><th class="share">Share</th></tr></thead>
+          <tbody id="meters"></tbody>
+        </table>
+      </section>
+    </div>
+    </div>
+  </main>
+</div>
+<script src="/js/app.js"></script>
+<script>
+(function () {
+'use strict';
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const nf = (n, d = 0) => Number(n).toLocaleString('en-PH', { minimumFractionDigits: d, maximumFractionDigits: d });
+
+const state = { view: null, pid: null, projects: [], meters: [], es: null, live: [], lastTs: 0, range: 'day', rate: 11.5, regDigits: 0, overview: null };
+let liveChart, histChart, h24Chart, ppChart;
+
+/* ---------- api ---------- */
+// The billing app's api() sends the session cookie and sends you to the sign-in page on a 401.
+const get = (path) => window.api('/api/monitor' + path);
+
+/* ---------- meter register (the odometer-style readout) ---------- */
+function buildRegister(el, intDigits, decDigits = 1) {
+  el.innerHTML = '';
+  const cells = intDigits + decDigits;
+  for (let i = 0; i < cells; i++) {
+    if (i === intDigits) el.insertAdjacentHTML('beforeend', '<span class="dot">.</span>');
+    else if (i > 0 && i < intDigits && (intDigits - i) % 3 === 0) el.insertAdjacentHTML('beforeend', '<span class="dot">,</span>');
+    el.insertAdjacentHTML('beforeend', `<span class="cell${i >= intDigits ? ' tenth' : ''}"><span class="strip">${[0,1,2,3,4,5,6,7,8,9].map((n) => `<b>${n}</b>`).join('')}</span></span>`);
+  }
+}
+function setRegister(el, value, label) {
+  const strips = el.querySelectorAll('.strip');
+  const v = String(Math.max(0, Math.min(10 ** strips.length - 1, Math.round(value * 10)))).padStart(strips.length, '0');
+  strips.forEach((s, i) => { s.style.transform = `translateY(${-Number(v[i]) * 10}%)`; });
+  if (label) el.setAttribute('aria-label', label);
+}
+
+/* ---------- charts ---------- */
+function makeCharts() {
+  Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
+  Chart.defaults.color = '#5b6c7b';
+  const grid = { color: '#d3dde3' };
+  liveChart = new Chart($('#liveChart'), {
+    type: 'line',
+    data: { labels: [], datasets: [{ data: [], borderColor: '#2b6b8c', backgroundColor: 'rgba(43,107,140,.14)', fill: true, borderWidth: 2, pointRadius: 0, tension: .25 }] },
+    options: { maintainAspectRatio: false, animation: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => `${c.parsed.y.toFixed(1)} kW` } } },
+      scales: { x: { grid: { display: false }, ticks: { maxTicksLimit: window.innerWidth < 600 ? 3 : 6, maxRotation: 0 } }, y: { beginAtZero: true, grid, title: { display: true, text: 'kW' } } } },
+  });
+  histChart = new Chart($('#histChart'), {
+    type: 'bar',
+    data: { labels: [], datasets: [{ data: [], backgroundColor: '#2b6b8c', borderRadius: 2, maxBarThickness: 28 }] },
+    options: { maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => `${nf(c.parsed.y, 1)} kWh` } } },
+      scales: { x: { grid: { display: false }, ticks: { maxTicksLimit: 8, maxRotation: 0 } }, y: { beginAtZero: true, grid, title: { display: true, text: 'kWh' } } } },
+  });
+}
+const clock = (t) => new Date(t).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+function drawLive() {
+  liveChart.data.labels = state.live.map((p) => clock(p.t));
+  liveChart.data.datasets[0].data = state.live.map((p) => p.total);
+  liveChart.update('none');
+}
+async function loadHistory() {
+  const pid = state.pid, range = state.range;
+  const rows = await get(`/projects/${pid}/history?range=${range}`);
+  if (pid !== state.pid || range !== state.range) return;
+  const fmt = { day: { hour: '2-digit', minute: '2-digit', hour12: false }, week: { weekday: 'short' }, month: { month: 'short', day: 'numeric' } }[range];
+  histChart.data.labels = rows.map((r) => new Date(r.t).toLocaleString('en-PH', fmt));
+  histChart.data.datasets[0].data = rows.map((r) => r.kwh);
+  histChart.update();
+}
+document.querySelectorAll('#range button').forEach((b) => b.addEventListener('click', () => {
+  state.range = b.dataset.range;
+  document.querySelectorAll('#range button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+  loadHistory().catch(showFault);
+}));
+
+/* ---------- summary and meters ---------- */
+async function loadSummary() {
+  const pid = state.pid;
+  const s = await get(`/projects/${pid}/summary`);
+  if (pid !== state.pid) return;
+  $('#kToday').innerHTML = s.todayKwh == null ? '-' : `${nf(s.todayKwh)}<small>kWh</small>`;
+  $('#k30').innerHTML = s.last30Kwh == null ? '-' : `${nf(s.last30Kwh)}<small>kWh</small>`;
+  $('#kCost').textContent = s.last30Cost == null ? '-' : '\u20B1' + nf(s.last30Cost);
+}
+function renderMeters() {
+  $('#meters').innerHTML = state.meters.map((m) => `
+    <tr data-id="${esc(m.id)}">
+      <td class="name">${esc(m.name)}<span class="type">${esc(m.type)}</span></td>
+      <td><span class="state${m.online ? '' : ' off'}">${m.online ? 'Online' : 'Offline'}</span></td>
+      <td class="num kw">-</td>
+      <td class="share"><span><i></i></span></td>
+    </tr>`).join('');
+}
+function applyReadings(d) {
+  setRegister($('#register'), d.total, `Current load ${d.total.toFixed(1)} kilowatts`);
+  let online = 0;
+  for (const r of d.readings) {
+    const row = document.querySelector(`#meters tr[data-id="${CSS.escape(r.meterId)}"]`);
+    if (!row) continue;
+    if (r.on) online++;
+    const st = row.querySelector('.state');
+    st.textContent = r.on ? 'Online' : 'Offline';
+    st.classList.toggle('off', !r.on);
+    row.querySelector('.kw').textContent = r.on ? r.kw.toFixed(1) : '-';
+    row.querySelector('.share i').style.width = d.total > 0 && r.on ? `${(r.kw / d.total * 100).toFixed(1)}%` : '0%';
+  }
+  $('#onlineNote').textContent = `${online} of ${d.readings.length} meters reporting`;
+}
+
+/* ---------- live stream ---------- */
+function setStatus(s, text) { $('#status').dataset.state = s; $('#statusText').textContent = text; }
+function closeStream() { if (state.es) { state.es.close(); state.es = null; } }
+function openStream() {
+  closeStream();
+  const pid = state.pid;
+  const es = new EventSource(`/api/monitor/projects/${pid}/stream`);
+  state.es = es;
+  es.addEventListener('backlog', (e) => { if (pid !== state.pid) return; state.live = JSON.parse(e.data); drawLive(); });
+  es.addEventListener('reading', (e) => {
+    if (pid !== state.pid) return;
+    const d = JSON.parse(e.data);
+    state.lastTs = d.t;
+    state.live.push({ t: d.t, total: d.total });
+    if (state.live.length > 90) state.live.shift();
+    drawLive();
+    applyReadings(d);
+    setStatus('ok', 'Live');
+  });
+  es.addEventListener('fault', (e) => setStatus('fault', 'Source not responding: ' + (JSON.parse(e.data).message || 'unknown error')));
+  es.onerror = () => {
+    if (es.readyState === EventSource.CLOSED) { setStatus('down', 'Disconnected'); get('/config').catch(() => {}); }
+    else setStatus('retry', 'Reconnecting');
+  };
+}
+setInterval(() => {
+  if (state.view === 'project' && $('#status').dataset.state === 'ok' && state.lastTs) {
+    const s = Math.max(0, Math.round((Date.now() - state.lastTs) / 1000));
+    $('#statusText').textContent = s < 4 ? 'Live' : `Live, updated ${s}s ago`;
+  }
+}, 1000);
+setInterval(() => { if (state.view === 'project') loadSummary().catch(() => {}); }, 60000);
+setInterval(() => { if (state.view === 'overview') loadOverview().catch(() => {}); }, 30000);
+
+/* ---------- views ---------- */
+function showFault(err) { setStatus('fault', 'Data source problem'); $('#notice').textContent = err.message; $('#notice').hidden = false; }
+function markTabs(id) { document.querySelectorAll('.tab').forEach((t) => t.setAttribute('aria-selected', String(t.dataset.id === id))); }
+function setView(v) {
+  state.view = v;
+  $('#overviewView').hidden = v !== 'overview';
+  $('#projectView').hidden = v !== 'project';
+  if (v === 'project' && liveChart) { liveChart.resize(); histChart.resize(); }
+  if (v === 'overview' && h24Chart) { h24Chart.resize(); ppChart.resize(); }
+  hideTip();
+  $('#notice').hidden = true;
+}
+function select(id) { return id === 'overview' ? openOverview() : openProject(id); }
+
+/* ---------- overview: national summary and map ---------- */
+const hhmm = (t) => new Date(t).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', hour12: false });
+
+async function openOverview() {
+  markTabs('overview');
+  closeStream();
+  state.pid = null;
+  setView('overview');
+  setStatus('ok', 'Refreshes every 30 s');
+  try { await loadOverview(); } catch (err) { showFault(err); }
+}
+
+async function loadOverview() {
+  const o = await get('/overview');
+  if (state.view !== 'overview') return;
+  state.overview = o;
+  renderOverview(o);
+}
+
+function makeOverviewCharts() {
+  const grid = { color: '#d3dde3' };
+  h24Chart = new Chart($('#h24Chart'), {
+    type: 'line',
+    data: { labels: [], datasets: [{ data: [], borderColor: '#2b6b8c', backgroundColor: 'rgba(43,107,140,.14)', fill: true, borderWidth: 2, pointRadius: 0, tension: .3 }] },
+    options: { maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => `${nf(c.parsed.y, 1)} kWh` } } },
+      scales: { x: { grid: { display: false }, ticks: { maxTicksLimit: window.innerWidth < 600 ? 4 : 6, maxRotation: 0 } }, y: { beginAtZero: true, grid, title: { display: true, text: 'kWh per hour' } } } },
+  });
+  ppChart = new Chart($('#ppChart'), {
+    type: 'bar',
+    data: { labels: [], datasets: [
+      { label: 'Before improvement', data: [], backgroundColor: '#a9bcc9', borderRadius: 2, maxBarThickness: 22 },
+      { label: 'After improvement', data: [], backgroundColor: '#2b6b8c', borderRadius: 2, maxBarThickness: 22 },
+    ] },
+    options: { maintainAspectRatio: false, plugins: { legend: { position: 'top', align: 'end', labels: { boxWidth: 12, boxHeight: 12 } }, tooltip: { callbacks: { label: (c) => `${c.dataset.label}: ${nf(c.parsed.y)} kWh` } } },
+      scales: { x: { grid: { display: false } }, y: { beginAtZero: true, grid, title: { display: true, text: 'kWh per day' } } } },
+  });
+}
+
+function renderOverview(o) {
+  const t = o.totals;
+  if (!h24Chart) makeOverviewCharts();
+
+  const digits = Math.max(6, String(Math.floor(t.savedKwh)).length);
+  if (state.regDigits !== digits) { buildRegister($('#regTotal'), digits, 1); state.regDigits = digits; }
+  setRegister($('#regTotal'), t.savedKwh, `Total energy saved ${nf(t.savedKwh)} kilowatt-hours`);
+
+  $('#oRate').innerHTML = `${nf(t.savingRate, 1)}<small>%</small>`;
+  $('#oRateToday').innerHTML = `${nf(t.todaySavingRate, 1)}<small>%</small>`;
+  $('#oToday').innerHTML = `${nf(t.todaySavedKwh)}<small>kWh</small>`;
+  $('#oCo2').innerHTML = `${nf(t.co2Kg)}<small>kg</small>`;
+  $('#oCo2Today').innerHTML = `${nf(t.todayCo2Kg)}<small>kg</small>`;
+  $('#oSites').innerHTML = `${nf(t.projects)}<small>${nf(t.meters)} meters</small>`;
+
+  $('#areas').innerHTML = o.areas.map((a) => `<tr><td class="name">${esc(a.area)}</td><td class="num">${nf(a.savedKwh)}</td><td class="num">${nf(a.projects)}</td></tr>`).join('');
+
+  h24Chart.data.labels = o.hourly.map((h) => hhmm(h.t));
+  h24Chart.data.datasets[0].data = o.hourly.map((h) => h.kwh);
+  h24Chart.update();
+  const peak = o.hourly.reduce((a, b) => (b.kwh > a.kwh ? b : a));
+  $('#peak').textContent = `Peak ${nf(peak.kwh)} kWh at ${hhmm(peak.t)}`;
+
+  ppChart.data.labels = o.prePost.map((r) => new Date(r.t).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' }));
+  ppChart.data.datasets[0].data = o.prePost.map((r) => r.before);
+  ppChart.data.datasets[1].data = o.prePost.map((r) => r.after);
+  ppChart.update();
+
+  const c = o.categories, total = c.lighting + c.ac + c.other || 1;
+  $('#cats').innerHTML = [['Lighting', c.lighting], ['Air conditioning', c.ac], ['Everything else', c.other]].map(([name, v]) =>
+    `<div class="cat"><span class="name">${name}</span><span class="share"><span><i style="width:${(v / total * 100).toFixed(1)}%"></i></span></span><span class="amt">${nf(v)} <small>kWh</small></span></div>`).join('');
+
+  drawMap(o);
+}
+
+// The same Mercator projection the map file was built with
+function mapXY(lon, lat) {
+  const P = window.PH_MAP, l = lon * Math.PI / 180, f = lat * Math.PI / 180;
+  return [P.tx + P.k * l, P.ty - P.k * Math.log(Math.tan(Math.PI / 4 + f / 2))];
+}
+
+let mapClusters = [], tipSticky = false;
+function drawMap(o) {
+  const P = window.PH_MAP, svg = $('#phMap');
+  if (!P) { svg.outerHTML = '<p class="error">ph-map.js did not load.</p>'; return; }
+  svg.setAttribute('viewBox', `0 0 ${P.w} ${P.h}`);
+  const maxSaved = Math.max(...o.projects.map((p) => p.savedKwh), 1);
+
+  // Group sites that would sit on top of each other at country scale
+  mapClusters = [];
+  for (const p of [...o.projects].sort((a, b) => b.savedKwh - a.savedKwh)) {
+    const [x, y] = mapXY(p.lon, p.lat);
+    let c = null, best = 28; // sites closer than this many map units share one pin
+    for (const k of mapClusters) { const d = Math.hypot(k.x - x, k.y - y); if (d < best) { best = d; c = k; } }
+    if (c) { c.items.push(p); c.x = (c.x * (c.items.length - 1) + x) / c.items.length; c.y = (c.y * (c.items.length - 1) + y) / c.items.length; }
+    else mapClusters.push({ x, y, items: [p] });
+  }
+  for (const c of mapClusters) {
+    const top = c.items[0];
+    const counts = {};
+    c.items.forEach((p) => { counts[p.area] = (counts[p.area] || 0) + 1; });
+    const main = Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0];
+    c.label = c.items.length === 1 ? top.city : (Object.keys(counts).length === 1 ? main : `${main} and nearby`);
+    c.r = c.items.length === 1 ? 5 + 7 * Math.sqrt(top.savedKwh / maxSaved) : 13 + 2 * Math.sqrt(c.items.length);
+  }
+
+  // Put each label beside its pin, trying right, left, below, above until it clears the others
+  const boxes = mapClusters.map((c) => ({ x1: c.x - c.r, x2: c.x + c.r, y1: c.y - c.r, y2: c.y + c.r }));
+  const hit = (a, b) => a.x1 < b.x2 && a.x2 > b.x1 && a.y1 < b.y2 && a.y2 > b.y1;
+  [...mapClusters.keys()].sort((a, b) => mapClusters[b].r - mapClusters[a].r).forEach((i) => {
+    const c = mapClusters[i], w = c.label.length * 7.4, h = 14;
+    const tries = [
+      { anchor: 'start', x: c.x + c.r + 5, y: c.y + 5 }, { anchor: 'end', x: c.x - c.r - 5, y: c.y + 5 },
+      { anchor: 'middle', x: c.x, y: c.y + c.r + 15 }, { anchor: 'middle', x: c.x, y: c.y - c.r - 6 },
+    ];
+    const fits = (t) => {
+      const x1 = t.anchor === 'start' ? t.x : t.anchor === 'end' ? t.x - w : t.x - w / 2;
+      const box = { x1, x2: x1 + w, y1: t.y - h + 3, y2: t.y + 3 };
+      return x1 >= 2 && box.x2 <= P.w - 2 && !boxes.some((b, j) => (j !== i || b.label) && hit(box, b)) ? box : null;
+    };
+    let pick = tries.find(fits) || tries[0];
+    const box = fits(pick) || { x1: pick.x, x2: pick.x + w, y1: pick.y - h, y2: pick.y };
+    c.lab = pick; boxes.push({ ...box, label: true });
+  });
+
+  svg.innerHTML = `<rect class="sea" width="${P.w}" height="${P.h}"/><path class="land" d="${P.d}"/>` + mapClusters.map((c, i) => {
+    const name = c.items.length === 1 ? `${c.items[0].name}, ${nf(c.items[0].savedKwh)} kilowatt-hours saved` : `${c.label}, ${c.items.length} sites`;
+    return `<g class="pin${c.items.length > 1 ? ' cluster' : ''}" data-i="${i}" tabindex="0" role="button" aria-label="${esc(name)}">
+      <circle cx="${c.x.toFixed(1)}" cy="${c.y.toFixed(1)}" r="${c.r.toFixed(1)}"/>
+      ${c.items.length > 1 ? `<text class="count" x="${c.x.toFixed(1)}" y="${c.y.toFixed(1)}">${c.items.length}</text>` : ''}
+      <text class="plabel" x="${c.lab.x.toFixed(1)}" y="${c.lab.y.toFixed(1)}" text-anchor="${c.lab.anchor}">${esc(c.label)}</text>
+    </g>`;
+  }).join('');
+
+  svg.querySelectorAll('.pin').forEach((g) => {
+    const c = mapClusters[Number(g.dataset.i)];
+    g.addEventListener('pointerenter', () => { if (!tipSticky) showTip(g, c); });
+    g.addEventListener('pointerleave', () => { if (!tipSticky) hideTip(); });
+    g.addEventListener('focus', () => { if (!tipSticky) showTip(g, c); });
+    g.addEventListener('blur', () => { if (!tipSticky) hideTip(); });
+    g.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (c.items.length === 1) { select(c.items[0].id); return; }
+      tipSticky = true;
+      showTip(g, c);
+    });
+    g.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); g.dispatchEvent(new MouseEvent('click', { bubbles: true })); } });
+  });
+}
+
+function showTip(g, c) {
+  const tip = $('#mapTip'), wrap = $('#mapWrap');
+  const head = c.items.length > 1
+    ? `<strong>${esc(c.label)}</strong><span>${c.items.length} sites</span>`
+    : `<strong>${esc(c.items[0].name)}</strong><span>${esc(c.items[0].area)}</span>`;
+  tip.innerHTML = head + c.items.map((p) => `<button type="button" data-open="${esc(p.id)}"><span>${esc(p.name)}</span><span>${nf(p.savedKwh)} kWh saved</span></button>`).join('');
+  tip.hidden = false;
+  tip.classList.toggle('sticky', tipSticky);
+  const r = g.getBoundingClientRect(), w = wrap.getBoundingClientRect();
+  const half = tip.offsetWidth / 2 + 4;
+  const cx = Math.min(Math.max(r.left + r.width / 2 - w.left, half), Math.max(half, w.width - half));
+  const roomAbove = r.top - w.top, roomBelow = w.bottom - r.bottom;
+  const below = roomAbove < tip.offsetHeight + 16 && roomBelow > roomAbove;
+  tip.classList.toggle('below', below);
+  tip.style.left = cx + 'px';
+  tip.style.top = (below ? r.bottom - w.top + 8 : r.top - w.top - 8) + 'px';
+}
+function hideTip() { tipSticky = false; const tip = $('#mapTip'); tip.hidden = true; tip.classList.remove('sticky'); }
+$('#mapTip').addEventListener('click', (e) => { const b = e.target.closest('[data-open]'); if (b) select(b.dataset.open); });
+document.addEventListener('click', (e) => { if (tipSticky && !e.target.closest('#mapTip')) hideTip(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hideTip(); });
+
+/* ---------- one site ---------- */
+async function openProject(id) {
+  state.pid = id;
+  markTabs(id);
+  setView('project');
+  closeStream();
+  state.live = []; state.lastTs = 0;
+  drawLive();
+  setRegister($('#register'), 0);
+  setStatus('idle', 'Connecting');
+  const p = state.projects.find((x) => x.id === id);
+  $('#pName').textContent = p.name;
+  $('#pLoc').textContent = p.location;
+  $('#kToday').textContent = $('#k30').textContent = $('#kCost').textContent = '-';
+  try {
+    const meters = await get(`/projects/${id}/meters`);
+    if (id !== state.pid) return;
+    state.meters = meters;
+    renderMeters();
+    openStream();
+    await Promise.all([loadSummary(), loadHistory()]);
+  } catch (err) { showFault(err); }
+}
+
+async function boot() {
+  if (!liveChart) { buildRegister($('#register'), 3, 1); makeCharts(); }
+  try {
+    const cfg = await get('/config');
+    state.rate = cfg.rate;
+    $('#demoBanner').hidden = cfg.mode !== 'mock';
+    state.projects = await get('/projects');
+    $('#tabs').innerHTML = '<button class="tab" role="tab" data-id="overview" aria-selected="false">Overview</button>'
+      + state.projects.map((p) => `<button class="tab" role="tab" data-id="${esc(p.id)}" aria-selected="false">${esc(p.name)}</button>`).join('');
+    document.querySelectorAll('.tab').forEach((t) => t.addEventListener('click', () => select(t.dataset.id)));
+    select('overview');
+  } catch (err) { showFault(err); }
+}
+
+(async () => { try { await shell(); } catch (_) { return; } boot(); })();
+})();
+</script>
+</body>
+</html>

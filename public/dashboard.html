@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Overview — M-Carbon System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+<div class="shell">
+  <aside class="rail"></aside>
+  <main>
+    <div class="page-head">
+      <div>
+        <h1>Overview</h1>
+        <p>Billing, savings and collection across every M-Carbon project.</p>
+      </div>
+      <a class="btn primary" href="/bills.html">Start a billing period</a>
+    </div>
+
+    <div class="stat-row" id="stats"></div>
+
+    <div class="split">
+      <div class="panel">
+        <header><h2>Needs attention</h2><span id="pending-count" style="color:var(--ink-soft);font-size:.85rem"></span></header>
+        <div id="pending"></div>
+      </div>
+      <div>
+        <div class="panel">
+          <header><h2>Overdue accounts</h2></header>
+          <div id="overdue"></div>
+        </div>
+        <div class="panel">
+          <header><h2>Baseline methods in use</h2></header>
+          <div id="methods"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <header><h2>Monthly savings and billing</h2></header>
+      <div class="table-wrap" id="monthly"></div>
+    </div>
+  </main>
+</div>
+<script src="/js/app.js"></script>
+<script>
+const METHODS = { fixed: 'Dashboard fixed baseline', savings_pct: 'Agreed savings percentage', operating_hours: 'Actual operating hours' };
+
+(async () => {
+  await shell();
+  const d = await api('/api/reports/overview');
+
+  document.getElementById('stats').innerHTML = [
+    ['Active clients', d.clients, `${d.projects} project sites`],
+    ['Energy saved', kwh(d.total_kwh_saved, 0), 'across issued statements'],
+    ['Billed to clients', money(d.total_billed), `${d.statements} statements`],
+    ['Collected', money(d.total_collected), 'recorded payments'],
+    ['Outstanding', money(d.outstanding), 'unpaid balance']
+  ].map(([label, value, sub]) => `<div class="stat"><b>${value}</b><span>${label} — ${sub}</span></div>`).join('');
+
+  const pending = document.getElementById('pending');
+  document.getElementById('pending-count').textContent = d.pending.length ? `${d.pending.length} open` : '';
+  pending.innerHTML = d.pending.length ? `<div class="table-wrap"><table>
+      <thead><tr><th>Statement</th><th>Client</th><th>Period</th><th>Stage</th><th class="num">Amount</th></tr></thead>
+      <tbody>${d.pending.map((b) => `<tr>
+        <td><a href="/bill.html?id=${b.id}">${esc(b.statement_no)}</a></td>
+        <td>${esc(b.client_name)}<br><span style="color:var(--ink-soft);font-size:.82rem">${esc(b.project_name)}</span></td>
+        <td>${dateText(b.period_start)} – ${dateText(b.period_end)}</td>
+        <td><span class="pill ${b.status}">${esc(b.status.replace('_', ' '))}</span></td>
+        <td class="num">${money(b.amount_billed)}</td></tr>`).join('')}</tbody></table></div>`
+    : '<div class="empty">Nothing waiting. Start a billing period when this month’s readings are in.</div>';
+
+  document.getElementById('overdue').innerHTML = d.overdue.length ? `<div class="table-wrap"><table>
+      <thead><tr><th>Client</th><th>Due</th><th class="num">Balance</th></tr></thead>
+      <tbody>${d.overdue.map((b) => `<tr>
+        <td><a href="/bill.html?id=${b.id}">${esc(b.client_name)}</a></td>
+        <td>${dateText(b.due_date)}</td>
+        <td class="num">${money(b.total_due)}</td></tr>`).join('')}</tbody></table></div>`
+    : '<div class="empty">No overdue balances.</div>';
+
+  document.getElementById('methods').innerHTML = d.by_method.length ? `<table><tbody>${d.by_method
+      .map((m) => `<tr><td>${METHODS[m.baseline_method] || m.baseline_method}</td><td class="num">${m.n}</td></tr>`).join('')}</tbody></table>`
+    : '<div class="empty">No computations yet.</div>';
+
+  document.getElementById('monthly').innerHTML = d.monthly.length ? `<table>
+      <thead><tr><th>Month</th><th class="num">Energy savings</th><th class="num">Gross cost savings</th><th class="num">Billed by INES</th></tr></thead>
+      <tbody>${d.monthly.map((m) => `<tr><td>${m.month}</td><td class="num">${kwh(m.kwh, 0)}</td>
+        <td class="num">${money(m.gross)}</td><td class="num">${money(m.billed)}</td></tr>`).join('')}</tbody></table>`
+    : '<div class="empty">Issue a statement and the monthly totals appear here.</div>';
+})().catch((e) => toast(e.message, true));
+</script>
+</body>
+</html>

@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Users — M-Carbon System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+<div class="shell">
+  <aside class="rail"></aside>
+  <main>
+    <div class="page-head">
+      <div><h1>Users</h1>
+      <p>Administrators configure and finalise. Billing officers compute and generate. Viewers can read only.</p></div>
+    </div>
+    <div class="panel"><div class="table-wrap" id="list"></div></div>
+    <div class="grid2">
+      <div class="panel">
+        <header><h2>Add a user</h2></header>
+        <div class="body"><form id="uform">
+          <div class="field"><label for="u-username">Username</label><input id="u-username" required></div>
+          <div class="field"><label for="u-name">Full name</label><input id="u-name" required></div>
+          <div class="field"><label for="u-role">Role</label><select id="u-role">
+            <option value="billing_officer">Billing officer</option>
+            <option value="admin">Administrator</option>
+            <option value="viewer">Viewer</option></select></div>
+          <div class="field"><label for="u-pass">Temporary password</label><input id="u-pass" type="password" required minlength="8"></div>
+          <button class="primary" type="submit">Create user</button>
+        </form></div>
+      </div>
+      <div class="panel">
+        <header><h2>Change your password</h2></header>
+        <div class="body"><form id="pform">
+          <div class="field"><label for="p-old">Current password</label><input id="p-old" type="password" required></div>
+          <div class="field"><label for="p-new">New password</label><input id="p-new" type="password" required minlength="8"></div>
+          <button type="submit">Update password</button>
+        </form></div>
+      </div>
+    </div>
+  </main>
+</div>
+<script src="/js/app.js"></script>
+<script>
+const ROLES = { admin: 'Administrator', billing_officer: 'Billing officer', viewer: 'Viewer' };
+
+async function load() {
+  const users = await api('/api/auth/users');
+  document.getElementById('list').innerHTML = `<table>
+    <thead><tr><th>Username</th><th>Name</th><th>Role</th><th>Status</th><th></th></tr></thead>
+    <tbody>${users.map((u) => `<tr><td>${esc(u.username)}</td><td>${esc(u.full_name)}</td>
+      <td>${ROLES[u.role] || u.role}</td>
+      <td><span class="pill ${u.active ? 'issued' : 'void'}">${u.active ? 'Active' : 'Deactivated'}</span></td>
+      <td class="num"><button class="quiet" onclick="toggle(${u.id}, ${u.active ? 0 : 1})">${u.active ? 'Deactivate' : 'Reactivate'}</button></td>
+      </tr>`).join('')}</tbody></table>`;
+}
+
+async function toggle(id, active) {
+  try { await api('/api/auth/users/' + id, { method: 'PATCH', body: { active } }); await load(); }
+  catch (e) { toast(e.message, true); }
+}
+
+document.getElementById('uform').onsubmit = async (e) => {
+  e.preventDefault();
+  try {
+    await api('/api/auth/users', { method: 'POST', body: {
+      username: document.getElementById('u-username').value.trim(),
+      full_name: document.getElementById('u-name').value.trim(),
+      role: document.getElementById('u-role').value,
+      password: document.getElementById('u-pass').value
+    }});
+    e.target.reset(); toast('User created'); await load();
+  } catch (err) { toast(err.message, true); }
+};
+
+document.getElementById('pform').onsubmit = async (e) => {
+  e.preventDefault();
+  try {
+    await api('/api/auth/password', { method: 'POST', body: {
+      current_password: document.getElementById('p-old').value,
+      new_password: document.getElementById('p-new').value
+    }});
+    e.target.reset(); toast('Password updated');
+  } catch (err) { toast(err.message, true); }
+};
+
+(async () => { await shell(); await load(); })().catch((e) => toast(e.message, true));
+</script>
+</body>
+</html>

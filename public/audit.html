@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Activity log — M-Carbon System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+<div class="shell">
+  <aside class="rail"></aside>
+  <main>
+    <div class="page-head">
+      <div><h1>Activity log</h1>
+      <p>What changed, when, by whom, and why — across clients, projects and billing.</p></div>
+    </div>
+    <div class="panel"><div class="body"><div class="inline-form">
+      <div><label for="entity">Area</label><select id="entity">
+        <option value="">Everything</option><option value="bill">Billing</option>
+        <option value="client">Clients</option><option value="project">Projects</option>
+        <option value="contract">Billing configuration</option><option value="user">Users</option></select></div>
+      <div><label for="q">Search</label><input id="q" placeholder="User, action or detail"></div>
+    </div></div></div>
+    <div class="panel"><div class="table-wrap" id="list"></div></div>
+  </main>
+</div>
+<script src="/js/app.js"></script>
+<script>
+async function load() {
+  const p = new URLSearchParams({ entity: entity.value, q: q.value });
+  const rows = await api('/api/reports/audit?' + p);
+  document.getElementById('list').innerHTML = rows.length ? `<table>
+    <thead><tr><th>When</th><th>Who</th><th>Area</th><th>Action</th><th>Detail</th></tr></thead>
+    <tbody>${rows.map((r) => `<tr><td>${esc(r.at)}</td><td>${esc(r.username || '')}</td>
+      <td>${esc(r.entity)} ${r.entity_id ?? ''}</td><td>${esc(r.action)}</td><td>${esc(r.detail || '')}</td></tr>`).join('')}
+    </tbody></table>` : '<div class="empty">Nothing recorded yet.</div>';
+}
+let t;
+q.oninput = () => { clearTimeout(t); t = setTimeout(load, 250); };
+entity.onchange = load;
+(async () => { await shell(); await load(); })().catch((e) => toast(e.message, true));
+</script>
+</body>
+</html>
