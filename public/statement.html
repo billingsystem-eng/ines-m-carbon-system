@@ -4,11 +4,71 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Billing statement — M-Carbon</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/app.css">
-<style> main { max-width: 900px; margin: 0 auto; } </style>
+<style>
+  main { max-width: 900px; margin: 0 auto; }
+
+  /* ---- Billing statement: bordered-box layout, A4 portrait ---- */
+  .bs {
+    --line: #000;
+    background: #fff; color: #000; margin: 0 auto; max-width: 794px;
+    padding: 30px 32px 36px; border: 1px solid var(--rule);
+    font: 12px/1.3 Arial, "Liberation Sans", Helvetica, sans-serif;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  .bs h1 { font: 700 22px/1.1 Arial, "Liberation Sans", Helvetica, sans-serif; letter-spacing: 0; margin: 0 0 8px; }
+  .bs .top { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; }
+  .bs .meta { font-size: 11px; line-height: 1.35; }
+  .bs .draft-flag { color: #b00020; font-weight: 700; margin-top: 4px; }
+  .bs .logo { height: 44px; width: auto; display: block; }
+
+  .bs .grid {
+    display: grid; grid-template-columns: minmax(0, 43fr) minmax(0, 51fr);
+    column-gap: 6%; margin-top: 18px;
+  }
+  .bs .label { margin: 0 0 6px; font-size: 12px; }
+  .bs .box { border: 1px solid var(--line); }
+  .bs .stack > * + * { margin-top: 18px; }
+
+  .bs .billed { padding: 6px 8px; line-height: 1.2; }
+  .bs .billed div { overflow-wrap: anywhere; }
+  .bs .head-right { display: flex; align-items: stretch; gap: 16px; margin-top: -8px; }
+  .bs .total { flex: 1; text-align: center; display: flex; flex-direction: column; justify-content: center; gap: 10px; padding: 14px 8px; }
+  .bs .total b { font-weight: 400; font-size: 19px; }
+  .bs .due-date { width: 110px; text-align: center; padding-top: 12px; }
+  .bs .due-date b { display: block; font-weight: 400; font-size: 14px; margin-top: 10px; }
+  .bs .billed-wrap { align-self: end; }
+
+  .bs table { border-collapse: collapse; width: 100%; font-size: 12px; }
+  .bs td { border: 1px solid var(--line); padding: 5px 8px; vertical-align: middle; text-align: left; }
+  .bs tbody tr:last-child td { border-bottom: 1px solid var(--line); }
+  .bs td.v { width: 46%; }
+  .bs .acct td.v { width: 34%; text-align: right; }
+  .bs .comp td.v { width: 40%; text-align: right; white-space: nowrap; }
+  .bs td.ind { padding-left: 16px; }
+  .bs td.part { font-weight: 700; }
+
+  .bs .chart { height: 100px; padding: 4px; }
+  .bs .chart svg { width: 100%; height: 100%; display: block; }
+  .bs .chart .none { height: 100%; display: flex; align-items: center; justify-content: center; color: #666; font-size: 11px; }
+
+  .bs .pay ul { margin: 0; padding: 0; list-style: none; }
+  .bs .pay li { padding-left: 32px; position: relative; margin: 1px 0; }
+  .bs .pay li::before { content: "-"; position: absolute; left: 12px; }
+
+  .bs .note { margin-top: 24px; font-size: 10px; color: #333; }
+
+  @page { size: A4; margin: 10mm; }
+  @media print {
+    .bs { border: 0; padding: 0; max-width: none; }
+    main { max-width: none; }
+  }
+  @media (max-width: 720px) {
+    .bs { padding: 16px; overflow-x: auto; }
+    .bs .grid { grid-template-columns: 1fr; row-gap: 22px; }
+    .bs .head-right { margin-top: 0; }
+  }
+</style>
 </head>
 <body>
 <div class="shell">
@@ -30,22 +90,55 @@
 <script>
 const id = new URLSearchParams(location.search).get('id');
 
-const PROVIDER = {
-  name: 'INES Solutions Inc.',
-  address: 'Metro Manila, Philippines',
-  tin: '—',
-  phone: '—',
-  email: '—'
-};
+/* Edit these to change what prints on every statement. */
+const PAYMENT_METHODS = [
+  'Via direct online payment….',
+  'Via check collected by…'
+];
 
 const METHODS = {
-  fixed: 'Method 1 — Dashboard fixed baseline',
-  savings_pct: 'Method 2 — Agreed savings percentage',
-  operating_hours: 'Method 3 — Actual operating hours per day'
+  fixed: 'Method 1 - Fixed baseline',
+  savings_pct: 'Method 2 - Savings %',
+  operating_hours: 'Method 3 - Operating hours'
 };
 
 const addr = (c) => [c.addr_unit, c.addr_building, c.addr_street, c.addr_barangay, c.addr_city, c.addr_region, c.addr_zip, c.addr_country]
   .filter(Boolean).join(', ');
+
+const peso = (n) => PESO + ' ' + dec(n);
+const kwhs = (n) => Number(n || 0).toLocaleString('en-PH', { maximumFractionDigits: 3 }) + ' kWh';
+const dt = (d) => new Date(d + 'T00:00:00');
+const longDate = (d) => d ? dt(d).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '—';
+const dmy = (d) => {
+  if (!d) return '—';
+  const x = dt(d);
+  return String(x.getDate()).padStart(2, '0') + '-' + x.toLocaleDateString('en-US', { month: 'short' }) + '-' + x.getFullYear();
+};
+const monthLabel = (d) => dt(d).toLocaleDateString('en-US', { month: 'short' }) + ' ' + String(dt(d).getFullYear()).slice(2);
+const compact = (n, short) => short && Math.abs(n) >= 10000 ? Math.round(n / 1000) + 'k' : Math.round(n).toLocaleString('en-US');
+
+/** Simple bar chart (inline SVG) — one bar per billing period. */
+function barChart(rows, key, color) {
+  if (!rows.length) return '<div class="none">No data yet</div>';
+  const W = 340, H = 110, L = 34, R = 6, T = 14, B = 20;
+  const max = Math.max(...rows.map((r) => Number(r[key]) || 0), 1);
+  const slot = (W - L - R) / rows.length;
+  const bw = Math.min(28, slot * 0.6);
+  const y = (v) => T + (H - T - B) * (1 - Math.max(v, 0) / max);
+  let g = `<line x1="${L}" y1="${H - B}" x2="${W - R}" y2="${H - B}" stroke="#000" stroke-width="0.8"/>
+           <line x1="${L}" y1="${T}" x2="${L}" y2="${H - B}" stroke="#000" stroke-width="0.8"/>
+           <text x="${L - 4}" y="${T + 3}" text-anchor="end" font-size="8">${esc(compact(max, rows.length > 8))}</text>
+           <text x="${L - 4}" y="${H - B + 3}" text-anchor="end" font-size="8">0</text>
+           <text x="4" y="${(T + H - B) / 2}" font-size="7" transform="rotate(-90 4 ${(T + H - B) / 2})" text-anchor="middle" fill="#444">kWh</text>`;
+  rows.forEach((r, i) => {
+    const v = Number(r[key]) || 0;
+    const cx = L + slot * i + slot / 2;
+    g += `<rect x="${cx - bw / 2}" y="${y(v)}" width="${bw}" height="${Math.max(H - B - y(v), 0)}" fill="${color}"/>
+          <text x="${cx}" y="${y(v) - 3}" text-anchor="middle" font-size="8">${esc(compact(v, rows.length > 8))}</text>
+          <text x="${cx}" y="${H - B + 11}" text-anchor="middle" font-size="8">${esc(monthLabel(r.period_end))}</text>`;
+  });
+  return `<svg viewBox="0 0 ${W} ${H}" font-family="Arial, Liberation Sans, Helvetica, sans-serif" role="img">${g}</svg>`;
+}
 
 (async () => {
   await shell();
@@ -54,105 +147,104 @@ const addr = (c) => [c.addr_unit, c.addr_building, c.addr_street, c.addr_baranga
   document.title = b.statement_no + ' — Billing statement';
 
   const primary = b.contacts.find((c) => c.is_primary) || b.contacts[0];
-  const devices = b.devices.map((d) => d.device_no).join(', ') || '—';
   const rates = b.rate_breakdown || [];
   const prev = b.previous_bill;
+  const other = Number(b.adjustments_total || 0) + Number(b.interest_charged || 0);
+  const isDraft = ['draft', 'for_review', 'void'].includes(b.status);
+
+  const rateRows = rates.length <= 1
+    ? `<tr><td>Applicable electricity rate (Grid)</td><td class="v">${peso(rates[0] ? rates[0].rate : 0)}</td></tr>`
+    : rates.map((r) => `<tr><td>${esc(r.label)} (${peso(r.rate)}/kWh × ${esc(kwhs(r.kwh))})</td><td class="v">${peso(r.value)}</td></tr>`).join('');
 
   document.getElementById('doc').innerHTML = `
-  <article class="statement">
-    <div class="masthead">
+  <article class="bs">
+    <div class="top">
       <div>
-        <h1>${esc(PROVIDER.name)}</h1>
-        <div style="font-size:.85rem">${esc(PROVIDER.address)}<br>TIN ${esc(PROVIDER.tin)} · ${esc(PROVIDER.phone)} · ${esc(PROVIDER.email)}</div>
+        <h1>BILLING STATEMENT</h1>
+        <div class="meta">Statement No: ${esc(b.statement_no)}<br>Statement Date: ${esc(longDate(b.bill_date))}
+          ${isDraft ? `<div class="draft-flag">${esc(b.status_label).toUpperCase()} — NOT FOR RELEASE</div>` : ''}</div>
       </div>
-      <div class="no">
-        <b>Statement of account</b><br>
-        ${esc(b.statement_no)}<br>
-        Statement date ${dateText(b.bill_date)}<br>
-        <span class="pill ${b.status}">${esc(b.status_label)}</span>
-      </div>
+      <img class="logo" src="/img/ines-logo.jpg" alt="INES Solutions Inc">
     </div>
 
-    <section>
-      <div class="grid2">
-        <dl class="kv">
-          <dt>Billed to</dt><dd><b>${esc(b.client.name)}</b></dd>
-          <dt>Account no.</dt><dd>${esc(b.client.account_no)}</dd>
-          <dt>TIN</dt><dd>${esc(b.client.tin || '—')}</dd>
-          <dt>Address</dt><dd>${esc(addr(b.client) || '—')}</dd>
-          <dt>Attention</dt><dd>${esc(primary ? primary.name + (primary.position ? ', ' + primary.position : '') : '—')}</dd>
-        </dl>
-        <dl class="kv">
-          <dt>Project / site</dt><dd>${esc(b.project.name)}</dd>
-          <dt>Meter / device no.</dt><dd>${esc(devices)}</dd>
-          <dt>Data collection period</dt><dd>${dateText(b.period_start)} – ${dateText(b.period_end)} (${b.days} days)</dd>
-          <dt>Bill date</dt><dd>${dateText(b.bill_date)}</dd>
-          <dt>Due date</dt><dd>${dateText(b.due_date)}</dd>
-          <dt>Data source</dt><dd>${b.source === 'manual' ? 'Standalone / manual source' : 'M-Carbon Dashboard'}</dd>
-        </dl>
+    <div class="grid">
+      <div class="billed-wrap">
+        <p class="label">Billed To:</p>
+        <div class="box billed">
+          <div>${esc(b.client.name.toUpperCase())}</div>
+          ${addr(b.client) ? `<div>${esc(addr(b.client).toUpperCase())}</div>` : ''}
+          <div>Account Number: ${esc(b.client.account_no)}</div>
+          <div>TIN: ${esc(b.client.tin || '—')}</div>
+          <div>Attention: ${esc(primary ? primary.name : '—')}</div>
+        </div>
       </div>
-    </section>
+      <div class="head-right">
+        <div class="box total"><span>TOTAL AMOUNT DUE:</span><b>PHP ${dec(b.total_due)}</b></div>
+        <div class="due-date">DUE DATE:<b>${esc(dmy(b.due_date))}</b></div>
+      </div>
 
-    <section>
-      <h2 style="font-size:.95rem;margin-bottom:8px">Consumption and savings</h2>
-      <table>
-        <tbody>
-          <tr><td>Baseline calculation method</td><td class="num">${esc(METHODS[b.baseline_method] || b.baseline_method)}</td></tr>
-          <tr><td>Calculated baseline consumption</td><td class="num">${kwh(b.baseline_kwh)}</td></tr>
-          <tr><td>Actual M-Carbon consumption</td><td class="num">${kwh(b.actual_kwh)}</td></tr>
-          <tr><td><b>Energy savings</b></td><td class="num"><b>${kwh(b.energy_savings_kwh)}</b></td></tr>
-        </tbody>
-      </table>
-    </section>
+      <div class="stack" style="margin-top:22px">
+        <div>
+          <p class="label">Usage Profile:</p>
+          <table>
+            <tr><td class="v">Project/site:</td><td>${esc(b.project.name)}</td></tr>
+            <tr><td class="v">Address:</td><td>${esc(b.project.address || '—')}</td></tr>
+            <tr><td class="v">Device/s:</td><td>${b.devices.length}</td></tr>
+            <tr><td class="v">Lighting quantity:</td><td>${esc(b.project.lighting_qty ?? '—')}</td></tr>
+            <tr><td class="v">Data collection period:</td><td>${esc(longDate(b.period_start))} - ${esc(longDate(b.period_end))}</td></tr>
+            <tr><td class="v">Data collection days:</td><td>${b.days}</td></tr>
+            <tr><td class="v">Bill date:</td><td>${esc(longDate(b.bill_date))}</td></tr>
+            <tr><td class="v">Data source:</td><td>${b.source === 'manual' ? 'Manual/standalone mode' : 'M-Carbon Dashboard'}</td></tr>
+            <tr><td class="v">Previous consumption:</td><td>${prev ? esc(kwhs(prev.actual_kwh)) : '—'}</td></tr>
+            <tr><td class="v">Current consumption:</td><td>${esc(kwhs(b.actual_kwh))}</td></tr>
+            <tr><td class="v">Previous kWh savings:</td><td>${prev ? esc(kwhs(prev.energy_savings_kwh)) : '—'}</td></tr>
+            <tr><td class="v">Current kWh savings:</td><td>${esc(kwhs(b.energy_savings_kwh))}</td></tr>
+          </table>
+        </div>
+        <div>
+          <p class="label">Monthly Energy Consumption Graph</p>
+          <div class="box chart">${barChart(b.history || [], 'actual_kwh', '#2b2f8f')}</div>
+        </div>
+        <div>
+          <p class="label">Monthly Energy Savings Graph</p>
+          <div class="box chart">${barChart(b.history || [], 'energy_savings_kwh', '#2b2f8f')}</div>
+        </div>
+      </div>
 
-    <section>
-      <h2 style="font-size:.95rem;margin-bottom:8px">Applicable rates</h2>
-      <table>
-        <thead><tr><th>Rate</th><th class="num">&#8369;/kWh</th><th class="num">Energy savings</th><th class="num">Savings value</th></tr></thead>
-        <tbody>
-          ${rates.length ? rates.map((r) => `<tr><td>${esc(r.label)}</td><td class="num">${dec(r.rate, 4)}</td>
-            <td class="num">${kwh(r.kwh)}</td><td class="num">${money(r.value)}</td></tr>`).join('')
-            : '<tr><td colspan="4">No rate breakdown recorded.</td></tr>'}
-          <tr><td colspan="3"><b>Gross energy cost savings</b></td><td class="num"><b>${money(b.gross_savings)}</b></td></tr>
-          <tr><td colspan="3">INES share (${dec(b.ines_pct)}%)</td><td class="num">${money(b.amount_billed)}</td></tr>
-          <tr><td colspan="3">Client retained savings (${dec(b.client_pct)}%)</td><td class="num">${money(b.client_retained)}</td></tr>
-        </tbody>
-      </table>
-    </section>
-
-    <section>
-      <h2 style="font-size:.95rem;margin-bottom:8px">Billing summary</h2>
-      <table>
-        <tbody>
-          <tr><td>Current amount due (INES performance-based charge)</td><td class="num">${money(b.amount_billed)}</td></tr>
-          <tr><td>Previous balance</td><td class="num">${money(b.previous_balance)}</td></tr>
-          <tr><td>Late payment interest</td><td class="num">${money(b.interest_charged)}</td></tr>
-          <tr><td>Adjustments</td><td class="num">${money(b.adjustments_total)}</td></tr>
-          <tr><td>Payments and credits</td><td class="num">− ${money(b.payments_total)}</td></tr>
-        </tbody>
-      </table>
-      <div class="due"><span>Total amount due by ${dateText(b.due_date)}</span><b>${money(b.total_due)}</b></div>
-    </section>
-
-    ${prev ? `<section>
-      <h2 style="font-size:.95rem;margin-bottom:8px">Comparison with the previous period</h2>
-      <table>
-        <thead><tr><th>Period</th><th class="num">Actual consumption</th><th class="num">Energy savings</th><th class="num">Amount billed</th></tr></thead>
-        <tbody>
-          <tr><td>${dateText(prev.period_start)} – ${dateText(prev.period_end)}</td><td class="num">${kwh(prev.actual_kwh)}</td>
-            <td class="num">${kwh(prev.energy_savings_kwh)}</td><td class="num">${money(prev.amount_billed)}</td></tr>
-          <tr><td>${dateText(b.period_start)} – ${dateText(b.period_end)}</td><td class="num">${kwh(b.actual_kwh)}</td>
-            <td class="num">${kwh(b.energy_savings_kwh)}</td><td class="num">${money(b.amount_billed)}</td></tr>
-        </tbody>
-      </table>
-    </section>` : ''}
-
-    <footer>
-      Billing reference ${esc(b.statement_no)}. This statement is computed from the baseline method, inputs, rates and
-      sharing ratio recorded for this billing period and remains traceable to them.
-      ${b.source === 'manual' ? 'Consumption data for this period was entered manually (standalone mode).' : ''}
-      ${b.notes ? '<br>Note: ' + esc(b.notes) : ''}
-    </footer>
+      <div class="stack" style="margin-top:22px">
+        <div>
+          <p class="label">Account Summary:</p>
+          <table class="acct">
+            <tr><td>Advanced Payments &amp; Credits</td><td class="v">${peso(b.payments_total)}</td></tr>
+            <tr><td>Balance from Previous Billing</td><td class="v">${peso(b.previous_balance)}</td></tr>
+            <tr><td>Billing Adjustment/s${Number(b.interest_charged) ? ' (incl. late payment interest)' : ''}</td><td class="v">${peso(other)}</td></tr>
+            <tr><td>Current Charges Amount</td><td class="v">${peso(b.amount_billed)}</td></tr>
+            <tr><td>Current Charges Due Date</td><td class="v">${esc(dmy(b.due_date))}</td></tr>
+            <tr><td>Total Amount Due</td><td class="v">${peso(b.total_due)}</td></tr>
+          </table>
+        </div>
+        <div>
+          <p class="label">Computation Breakdown:</p>
+          <table class="comp">
+            <tr><td class="part" colspan="2">Part I - Baseline Computation and Savings</td></tr>
+            <tr><td class="ind">Baseline computation method</td><td class="v">${esc(METHODS[b.baseline_method] || b.baseline_method)}</td></tr>
+            <tr><td class="ind">Calculate baseline consumption</td><td class="v">${esc(kwhs(b.baseline_kwh))}</td></tr>
+            <tr><td class="ind">Actual M-Carbon consumption</td><td class="v">${esc(kwhs(b.actual_kwh))}</td></tr>
+            <tr><td class="ind">Energy Savings</td><td class="v">${esc(kwhs(b.energy_savings_kwh))}</td></tr>
+            <tr><td class="part" colspan="2">Part II - Electricity Rates</td></tr>
+            ${rateRows}
+            <tr><td>Gross energy cost savings</td><td class="v">${peso(b.gross_savings)}</td></tr>
+            <tr><td>INES share (${+Number(b.ines_pct).toFixed(2)}%)</td><td class="v">${peso(b.amount_billed)}</td></tr>
+            <tr><td>Client retained savings (${+Number(b.client_pct).toFixed(2)}%)</td><td class="v">${peso(b.client_retained)}</td></tr>
+          </table>
+        </div>
+        <div class="pay">
+          <p class="label">Payment Methods:</p>
+          <ul>${PAYMENT_METHODS.map((m) => `<li>${esc(m)}</li>`).join('')}</ul>
+        </div>
+      </div>
+    </div>
+    ${b.notes || b.source === 'manual' ? `<div class="note">${b.source === 'manual' ? 'Consumption data for this period was entered manually (standalone mode). ' : ''}${b.notes ? 'Note: ' + esc(b.notes) : ''}</div>` : ''}
   </article>`;
 })().catch((e) => toast(e.message, true));
 </script>

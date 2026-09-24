@@ -66,8 +66,22 @@ function fullBill(id) {
     previous_bill: db.prepare(`SELECT statement_no, period_start, period_end, actual_kwh, energy_savings_kwh, amount_billed
       FROM bills WHERE client_id = ? AND project_id = ? AND period_start < ? AND status IN ('final','issued')
       ORDER BY period_start DESC LIMIT 1`).get(client.id, project.id, bill.period_start) || null,
+    history: billHistory(bill),
     trail: audit.trail('bill', id)
   };
+}
+
+/** Up to 12 periods for the statement graphs: this bill plus earlier final/issued bills for the same project.
+ *  A revision replaces the bill it revises, so keep only the newest bill per period. */
+function billHistory(bill) {
+  const rows = db.prepare(`
+    SELECT id, period_start, period_end, actual_kwh, baseline_kwh, energy_savings_kwh FROM bills
+    WHERE project_id = ? AND status != 'void'
+      AND (id = ? OR (period_start < ? AND status IN ('final','issued')))
+    ORDER BY period_start ASC, id ASC`).all(bill.project_id, bill.id, bill.period_start);
+  const byPeriod = new Map();
+  for (const r of rows) byPeriod.set(r.period_start, r);
+  return [...byPeriod.values()].slice(-12);
 }
 
 // --- List ---
