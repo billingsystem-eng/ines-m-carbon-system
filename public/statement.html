@@ -55,6 +55,7 @@
   .bs .pay ul { margin: 0; padding: 0; list-style: none; }
   .bs .pay li { padding-left: 32px; position: relative; margin: 1px 0; }
   .bs .pay li::before { content: "-"; position: absolute; left: 12px; }
+  .bs .pay-d { white-space: pre-line; font-size: 11px; }
 
   .bs .note { margin-top: 24px; font-size: 10px; color: #333; }
 
@@ -90,10 +91,10 @@
 <script>
 const id = new URLSearchParams(location.search).get('id');
 
-/* Edit these to change what prints on every statement. */
-const PAYMENT_METHODS = [
-  'Via direct online payment….',
-  'Via check collected by…'
+/* Shown only until at least one active method is added under "Payment method". */
+const FALLBACK_PAYMENT_METHODS = [
+  { name: 'Via direct online payment….' },
+  { name: 'Via check collected by…' }
 ];
 
 const METHODS = {
@@ -143,6 +144,8 @@ function barChart(rows, key, color) {
 (async () => {
   await shell();
   const b = await api('/api/bills/' + id);
+  const configured = await api('/api/payment-methods?active=1').catch(() => []);
+  const payMethods = configured.length ? configured : FALLBACK_PAYMENT_METHODS;
   document.getElementById('back').href = '/bill.html?id=' + b.id;
   document.title = b.statement_no + ' — Billing statement';
 
@@ -240,7 +243,7 @@ function barChart(rows, key, color) {
         </div>
         <div class="pay">
           <p class="label">Payment Methods:</p>
-          <ul>${PAYMENT_METHODS.map((m) => `<li>${esc(m)}</li>`).join('')}</ul>
+          <ul>${payMethods.map((m) => `<li>${esc(m.name)}${m.details ? `<div class="pay-d">${esc(m.details)}</div>` : ''}</li>`).join('')}</ul>
         </div>
       </div>
     </div>

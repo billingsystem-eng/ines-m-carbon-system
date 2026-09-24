@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Payment method — M-Carbon System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+<div class="shell">
+  <aside class="rail"></aside>
+  <main>
+    <div class="page-head">
+      <div><h1>Payment method</h1>
+      <p>How clients can pay INES. Active methods are printed under “Payment Methods” on every billing statement.</p></div>
+    </div>
+
+    <div class="panel"><div class="table-wrap" id="list"></div></div>
+
+    <div class="panel" id="form-panel" style="max-width:560px">
+      <header><h2 id="form-title">Add a payment method</h2></header>
+      <div class="body"><form id="pform">
+        <div class="field"><label for="pm-name">Name</label>
+          <input id="pm-name" required maxlength="120" placeholder="e.g. Bank transfer — BDO"></div>
+        <div class="field"><label for="pm-details">Details</label>
+          <textarea id="pm-details" maxlength="600" placeholder="Account name, account number, branch, payee, or instructions. Each line prints on its own line."></textarea></div>
+        <div class="actions">
+          <button class="primary" type="submit" id="pm-save">Add payment method</button>
+          <button type="button" id="pm-cancel" hidden>Cancel</button>
+        </div>
+      </form></div>
+    </div>
+    <p id="ro-note" class="empty" hidden style="padding-top:0">Only administrators can change payment methods.</p>
+  </main>
+</div>
+<script src="/js/app.js"></script>
+<script>
+let methods = [];
+let editingId = null;
+let isAdmin = false;
+
+const g = (id) => document.getElementById(id);
+
+function render() {
+  g('list').innerHTML = methods.length ? `<table>
+    <thead><tr><th>Name</th><th>Details</th><th>Status</th>${isAdmin ? '<th></th>' : ''}</tr></thead>
+    <tbody>${methods.map((m) => `<tr>
+      <td><b style="font-weight:600">${esc(m.name)}</b></td>
+      <td style="white-space:pre-line;color:var(--ink-soft)">${esc(m.details || '—')}</td>
+      <td><span class="pill ${m.active ? 'issued' : 'void'}">${m.active ? 'Active' : 'Inactive'}</span></td>
+      ${isAdmin ? `<td class="num">
+        <button class="quiet" onclick="edit(${m.id})">Edit</button>
+        <button class="quiet" onclick="toggle(${m.id}, ${m.active ? 0 : 1})">${m.active ? 'Deactivate' : 'Reactivate'}</button>
+        <button class="quiet" style="color:var(--alert)" onclick="remove(${m.id})">Delete</button></td>` : ''}
+      </tr>`).join('')}</tbody></table>`
+    : '<div class="empty">No payment methods yet. Until you add one, statements print a placeholder line.</div>';
+}
+
+async function load() {
+  methods = await api('/api/payment-methods');
+  render();
+}
+
+function resetForm() {
+  editingId = null;
+  g('pform').reset();
+  g('form-title').textContent = 'Add a payment method';
+  g('pm-save').textContent = 'Add payment method';
+  g('pm-cancel').hidden = true;
+}
+
+function edit(id) {
+  const m = methods.find((x) => x.id === id);
+  if (!m) return;
+  editingId = id;
+  g('pm-name').value = m.name;
+  g('pm-details').value = m.details || '';
+  g('form-title').textContent = 'Edit payment method';
+  g('pm-save').textContent = 'Save changes';
+  g('pm-cancel').hidden = false;
+  g('pm-name').focus();
+  g('form-panel').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+async function toggle(id, active) {
+  try { await api('/api/payment-methods/' + id, { method: 'PUT', body: { active } }); await load(); }
+  catch (e) { toast(e.message, true); }
+}
+
+async function remove(id) {
+  const m = methods.find((x) => x.id === id);
+  if (!m || !confirm(`Delete “${m.name}”? It will no longer print on statements.`)) return;
+  try {
+    await api('/api/payment-methods/' + id, { method: 'DELETE' });
+    if (editingId === id) resetForm();
+    await load(); toast('Payment method deleted');
+  } catch (e) { toast(e.message, true); }
+}
+
+g('pm-cancel').onclick = resetForm;
+
+g('pform').onsubmit = async (e) => {
+  e.preventDefault();
+  const body = { name: g('pm-name').value.trim(), details: g('pm-details').value.trim() };
+  try {
+    if (editingId) await api('/api/payment-methods/' + editingId, { method: 'PUT', body });
+    else await api('/api/payment-methods', { method: 'POST', body });
+    toast(editingId ? 'Payment method updated' : 'Payment method added');
+    resetForm(); await load();
+  } catch (err) { toast(err.message, true); }
+};
+
+(async () => {
+  const me = await shell();
+  isAdmin = me.role === 'admin';
+  if (!isAdmin) { g('form-panel').hidden = true; g('ro-note').hidden = false; }
+  await load();
+})().catch((e) => toast(e.message, true));
+</script>
+</body>
+</html>

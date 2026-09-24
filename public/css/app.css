@@ -166,6 +166,26 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .tape .headline { padding: 14px 16px; background: var(--signal-tint); border-top: 1px solid var(--rule-strong); }
 .tape .headline .line { font-size: 1rem; font-weight: 600; color: #06483b; }
 
+/* ---------- Dashboard charts ---------- */
+
+.charts { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.55fr); gap: 18px; align-items: stretch; }
+.charts .panel { margin-bottom: 0; }
+.status-wrap { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; }
+.status-pie { position: relative; width: 190px; height: 190px; flex: 0 0 auto; margin: 0 auto; }
+.legend { list-style: none; margin: 0; padding: 0; flex: 1 1 200px; font-size: 0.88rem; }
+.legend li { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--rule); }
+.legend li:last-child { border-bottom: 0; }
+.legend i { width: 10px; height: 10px; border-radius: 2px; flex: none; }
+.legend .n { margin-left: auto; white-space: nowrap; }
+.legend small { color: var(--ink-soft); font-size: 0.78rem; }
+.legend .zero { color: var(--ink-soft); }
+.chart-box { position: relative; height: 340px; }
+.seg[hidden] { display: none; }
+.seg { display: inline-flex; border: 1px solid var(--rule-strong); border-radius: var(--radius); overflow: hidden; }
+.seg button { border: 0; border-radius: 0; padding: 3px 11px; font-size: 0.82rem; background: var(--surface); }
+.seg button + button { border-left: 1px solid var(--rule-strong); }
+.seg button.on { background: var(--signal); color: #fff; }
+
 .stat-row { display: flex; flex-wrap: wrap; gap: 0; border: 1px solid var(--rule); background: var(--surface); border-radius: var(--radius); margin-bottom: 18px; }
 .stat { flex: 1 1 160px; padding: 14px 16px; border-right: 1px solid var(--rule); }
 .stat:last-child { border-right: 0; }
@@ -206,7 +226,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   .rail nav { flex-direction: row; flex-wrap: wrap; }
   .rail .who { margin: 0 0 0 auto; border: 0; padding: 0 8px; }
   main { padding: 18px 14px 48px; }
-  .split, .grid2, .grid3 { grid-template-columns: 1fr; }
+  .split, .grid2, .grid3, .charts { grid-template-columns: 1fr; }
   .tape { position: static; }
 }
 

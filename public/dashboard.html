@@ -28,27 +28,129 @@
         <header><h2>Needs attention</h2><span id="pending-count" style="color:var(--ink-soft);font-size:.85rem"></span></header>
         <div id="pending"></div>
       </div>
-      <div>
-        <div class="panel">
-          <header><h2>Overdue accounts</h2></header>
-          <div id="overdue"></div>
-        </div>
-        <div class="panel">
-          <header><h2>Baseline methods in use</h2></header>
-          <div id="methods"></div>
-        </div>
+      <div class="panel">
+        <header><h2>Overdue accounts</h2></header>
+        <div id="overdue"></div>
       </div>
     </div>
 
-    <div class="panel">
-      <header><h2>Monthly savings and billing</h2></header>
-      <div class="table-wrap" id="monthly"></div>
+    <div class="charts">
+      <div class="panel">
+        <header><h2>Overall account status</h2><span id="status-total" style="color:var(--ink-soft);font-size:.85rem"></span></header>
+        <div class="body" id="status-body"></div>
+      </div>
+      <div class="panel">
+        <header>
+          <h2>Energy savings and billing</h2>
+          <div class="seg" role="group" aria-label="Energy savings view">
+            <button type="button" class="on" data-mode="cum" aria-pressed="true">Cumulative</button>
+            <button type="button" data-mode="month" aria-pressed="false">Monthly</button>
+          </div>
+        </header>
+        <div class="body" id="bar-body"></div>
+      </div>
     </div>
   </main>
 </div>
 <script src="/js/app.js"></script>
+<script src="/js/vendor/chart.umd.js"></script>
 <script>
-const METHODS = { fixed: 'Dashboard fixed baseline', savings_pct: 'Agreed savings percentage', operating_hours: 'Actual operating hours' };
+const STATUS_COLORS = {
+  'Ongoing Data Collection': '#3f7fb0',
+  'Billed': '#0c6b5a',
+  'Paid': '#86b56b',
+  'Overdue': '#b5462f',
+  'Suspended': '#d19a2a',
+  'Project Complete': '#8a9a95'
+};
+const FALLBACK_COLOR = '#b9c4bf';
+const monthName = (ym) => new Date(ym + '-01T00:00:00').toLocaleDateString('en-PH', { month: 'short', year: 'numeric' });
+const compactNum = new Intl.NumberFormat('en-PH', { notation: 'compact', maximumFractionDigits: 1 });
+
+function statusChart(rows) {
+  const total = rows.reduce((t, r) => t + r.n, 0);
+  document.getElementById('status-total').textContent = total ? `${total} ${total === 1 ? 'client' : 'clients'}` : '';
+  const body = document.getElementById('status-body');
+  if (!total) { body.innerHTML = '<div class="empty">No clients yet. Add one under Clients &amp; projects.</div>'; return; }
+
+  body.innerHTML = `<div class="status-wrap">
+      <div class="status-pie"><canvas id="pie" role="img" aria-label="Pie chart of client accounts by status"></canvas></div>
+      <ul class="legend">${rows.map((r) => `<li class="${r.n ? '' : 'zero'}">
+        <i style="background:${STATUS_COLORS[r.status] || FALLBACK_COLOR}"></i><span>${esc(r.status)}</span>
+        <span class="n">${r.n} <small>(${Math.round((r.n / total) * 100)}%)</small></span></li>`).join('')}</ul>
+    </div>`;
+
+  new Chart(document.getElementById('pie'), {
+    type: 'pie',
+    data: {
+      labels: rows.map((r) => r.status),
+      datasets: [{
+        data: rows.map((r) => r.n),
+        backgroundColor: rows.map((r) => STATUS_COLORS[r.status] || FALLBACK_COLOR),
+        borderColor: '#fff', borderWidth: rows.filter((r) => r.n > 0).length > 1 ? 2 : 0
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: (c) => ` ${c.label}: ${c.parsed} (${Math.round((c.parsed / total) * 100)}%)` } }
+      }
+    }
+  });
+}
+
+function barChart(monthly) {
+  const body = document.getElementById('bar-body');
+  if (!monthly.length) {
+    body.innerHTML = '<div class="empty">Issue a statement and the monthly totals appear here.</div>';
+    document.querySelector('.seg').hidden = true;
+    return;
+  }
+  body.innerHTML = '<div class="chart-box"><canvas id="bar" role="img" aria-label="Bar chart of energy savings in kilowatt-hours and amount billed in pesos, by month"></canvas></div>';
+
+  let mode = 'cum';
+  const energy = () => monthly.map((m) => (mode === 'cum' ? m.cum_kwh : m.kwh));
+  const energyLabel = () => (mode === 'cum' ? 'Cumulative energy savings (kWh)' : 'Monthly energy savings (kWh)');
+
+  const chart = new Chart(document.getElementById('bar'), {
+    type: 'bar',
+    data: {
+      labels: monthly.map((m) => monthName(m.month)),
+      datasets: [
+        { label: energyLabel(), data: energy(), yAxisID: 'kwh', backgroundColor: '#3f7fb0', borderRadius: 2 },
+        { label: 'Monthly billing (₱)', data: monthly.map((m) => m.billed), yAxisID: 'php', backgroundColor: '#0c6b5a', borderRadius: 2 }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { position: 'bottom', labels: { boxWidth: 12, boxHeight: 12 } },
+        tooltip: { callbacks: { label: (c) => ` ${c.dataset.label}: ${c.dataset.yAxisID === 'kwh' ? kwh(c.parsed.y, 0) : money(c.parsed.y)}` } }
+      },
+      scales: {
+        x: { grid: { display: false } },
+        kwh: { position: 'left', beginAtZero: true, title: { display: true, text: 'kWh' }, ticks: { callback: (v) => compactNum.format(v) } },
+        php: { position: 'right', beginAtZero: true, title: { display: true, text: 'Billing (₱)' }, grid: { drawOnChartArea: false }, ticks: { callback: (v) => compactNum.format(v) } }
+      }
+    }
+  });
+
+  document.querySelectorAll('.seg button').forEach((btn) => {
+    btn.onclick = () => {
+      mode = btn.dataset.mode;
+      document.querySelectorAll('.seg button').forEach((b) => {
+        const on = b === btn;
+        b.classList.toggle('on', on);
+        b.setAttribute('aria-pressed', on);
+      });
+      chart.data.datasets[0].data = energy();
+      chart.data.datasets[0].label = energyLabel();
+      chart.update();
+    };
+  });
+}
 
 (async () => {
   await shell();
@@ -82,15 +184,12 @@ const METHODS = { fixed: 'Dashboard fixed baseline', savings_pct: 'Agreed saving
         <td class="num">${money(b.total_due)}</td></tr>`).join('')}</tbody></table></div>`
     : '<div class="empty">No overdue balances.</div>';
 
-  document.getElementById('methods').innerHTML = d.by_method.length ? `<table><tbody>${d.by_method
-      .map((m) => `<tr><td>${METHODS[m.baseline_method] || m.baseline_method}</td><td class="num">${m.n}</td></tr>`).join('')}</tbody></table>`
-    : '<div class="empty">No computations yet.</div>';
-
-  document.getElementById('monthly').innerHTML = d.monthly.length ? `<table>
-      <thead><tr><th>Month</th><th class="num">Energy savings</th><th class="num">Gross cost savings</th><th class="num">Billed by INES</th></tr></thead>
-      <tbody>${d.monthly.map((m) => `<tr><td>${m.month}</td><td class="num">${kwh(m.kwh, 0)}</td>
-        <td class="num">${money(m.gross)}</td><td class="num">${money(m.billed)}</td></tr>`).join('')}</tbody></table>`
-    : '<div class="empty">Issue a statement and the monthly totals appear here.</div>';
+  const cs = getComputedStyle(document.body);
+  Chart.defaults.font.family = cs.fontFamily;
+  Chart.defaults.font.size = 12;
+  Chart.defaults.color = '#52635e';
+  statusChart(d.clients_by_status);
+  barChart(d.monthly);
 })().catch((e) => toast(e.message, true));
 </script>
 </body>

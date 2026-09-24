@@ -48,7 +48,8 @@ const NAV = [
   { href: '/bills.html', label: 'Billing' },
   { href: '/monitor.html', label: 'Live monitor' },
   { href: '/audit.html', label: 'Activity log' },
-  { href: '/users.html', label: 'Users', adminOnly: true }
+  { href: '/users.html', label: 'Users', adminOnly: true },
+  { href: '/payment-methods.html', label: 'Payment method' }
 ];
 
 /** Renders the left rail and returns the signed-in user. */

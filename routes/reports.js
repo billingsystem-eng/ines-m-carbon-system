@@ -1,6 +1,7 @@
 const express = require('express');
 const db = require('../db');
 const { round } = require('../lib/billing');
+const { STATUSES } = require('./clients');
 
 const router = express.Router();
 
@@ -34,13 +35,24 @@ router.get('/overview', (req, res) => {
     WHERE b.status = 'issued' AND b.total_due > 0 AND b.due_date < date('now')
     ORDER BY b.due_date LIMIT 12`).all();
 
-  const monthly = db.prepare(`
+  // Oldest first. Cumulative savings are totalled across every month on record,
+  // then only the latest 12 are sent, so the running total never restarts.
+  const monthlyAll = db.prepare(`
     SELECT substr(period_end,1,7) AS month,
            COALESCE(SUM(energy_savings_kwh),0) kwh,
            COALESCE(SUM(gross_savings),0) gross,
            COALESCE(SUM(amount_billed),0) billed
     FROM bills WHERE status IN ('final','issued')
-    GROUP BY month ORDER BY month DESC LIMIT 12`).all();
+    GROUP BY month ORDER BY month`).all();
+  let running = 0;
+  monthlyAll.forEach((m) => { running += m.kwh; m.cum_kwh = round(running, 3); });
+  const monthly = monthlyAll.slice(-12);
+
+  // Account status of every client, always listing the six standard statuses
+  // (even at zero) in their usual order, then any legacy status found in the data.
+  const statusRows = db.prepare('SELECT status, COUNT(*) n FROM clients GROUP BY status').all();
+  const clientsByStatus = STATUSES.map((s) => ({ status: s, n: (statusRows.find((r) => r.status === s) || { n: 0 }).n }))
+    .concat(statusRows.filter((r) => !STATUSES.includes(r.status)));
 
   res.json({
     clients, projects,
@@ -53,7 +65,8 @@ router.get('/overview', (req, res) => {
     by_status: byStatus,
     by_method: byMethod,
     pending, overdue,
-    monthly: monthly.reverse()
+    monthly,
+    clients_by_status: clientsByStatus
   });
 });
 

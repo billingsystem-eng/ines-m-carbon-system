@@ -161,6 +161,15 @@ CREATE TABLE IF NOT EXISTS audit_log (
   detail TEXT
 );
 
+-- Ways a client can pay INES. Active ones print on every billing statement.
+CREATE TABLE IF NOT EXISTS payment_methods (
+  id INTEGER PRIMARY KEY,
+  name TEXT NOT NULL,                         -- e.g. "Bank transfer — BDO"
+  details TEXT,                               -- account name / number / instructions
+  active INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE INDEX IF NOT EXISTS idx_bills_client ON bills(client_id, period_start);
 CREATE INDEX IF NOT EXISTS idx_audit_entity ON audit_log(entity, entity_id);
 `);

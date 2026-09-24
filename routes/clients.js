@@ -102,3 +102,4 @@ router.delete('/:id/contacts/:contactId', canEdit, (req, res) => {
 });
 
 module.exports = router;
+module.exports.STATUSES = STATUSES; // reused by the dashboard's account-status chart
