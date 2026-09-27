@@ -12,6 +12,7 @@ const billsRouter = require('./routes/bills');
 const reportsRouter = require('./routes/reports');
 const monitorRouter = require('./routes/monitor');
 const paymentMethodsRouter = require('./routes/payment-methods');
+const psgcRouter = require('./routes/psgc');
 
 require('./db'); // opens the database and creates tables on first run
 
@@ -60,6 +61,7 @@ app.use('/api/bills', requireAuth, billsRouter);
 app.use('/api/reports', requireAuth, reportsRouter);
 app.use('/api/monitor', requireAuth, monitorRouter); // live M-Carbon monitor (map, sites, meters)
 app.use('/api/payment-methods', requireAuth, paymentMethodsRouter);
+app.use('/api/psgc', requireAuth, psgcRouter);
 
 app.use(express.static(path.join(__dirname, 'public')));
 
