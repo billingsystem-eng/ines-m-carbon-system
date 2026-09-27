@@ -52,16 +52,23 @@ const NAV = [
   { href: '/payment-methods.html', label: 'Payment method' }
 ];
 
+/** Pages a viewer is allowed to open: the billing list, a bill, its statement, and payment methods (read-only). */
+const VIEWER_PAGES = ['/bills.html', '/bill.html', '/statement.html', '/payment-methods.html'];
+
 /** Renders the left rail and returns the signed-in user. */
 async function shell() {
   const me = await api('/api/auth/me');
+  if (me.role === 'viewer' && !VIEWER_PAGES.includes(location.pathname)) {
+    location.href = '/bills.html';
+    return me;
+  }
   const rail = document.querySelector('.rail');
   if (!rail) return me;
   const here = location.pathname;
   const roleText = { admin: 'Administrator', billing_officer: 'Billing officer', viewer: 'Viewer' }[me.role] || me.role;
   rail.innerHTML = `
     <div class="mark"><b>M-Carbon System</b><span>INES Solutions</span></div>
-    <nav>${NAV.filter((n) => !n.adminOnly || me.role === 'admin')
+    <nav>${NAV.filter((n) => (!n.adminOnly || me.role === 'admin') && (me.role !== 'viewer' || VIEWER_PAGES.includes(n.href)))
       .map((n) => `<a href="${n.href}" class="${here === n.href ? 'on' : ''}">${n.label}</a>`)
       .join('')}</nav>
     <div class="who"><b>${esc(me.full_name)}</b>${roleText}<br><button id="signout">Sign out</button></div>`;

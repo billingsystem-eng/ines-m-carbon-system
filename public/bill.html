@@ -24,6 +24,7 @@
         <div class="crumb"><a href="/bills.html">Billing</a></div>
         <h1 id="title">Billing worksheet</h1>
         <p id="sub"></p>
+        <p id="wk-status" style="margin:4px 0 0;color:var(--ink-soft);font-size:.82rem"></p>
       </div>
       <div class="actions" id="actions"></div>
     </div>
@@ -92,7 +93,7 @@
           </header>
           <div class="table-wrap">
             <table id="rate-lines">
-              <thead><tr><th>Rate label</th><th class="num">Rate (&#8369;/kWh)</th><th class="num">Energy savings (kWh)</th><th class="num">Savings value</th><th></th></tr></thead>
+              <thead><tr><th>Rate label</th><th class="num">Rate (&#8369;/kWh)</th><th>Active hours</th><th class="num">Energy savings (kWh)</th><th class="num">Savings value</th><th></th></tr></thead>
               <tbody></tbody>
             </table>
           </div>
@@ -103,14 +104,22 @@
           <header><h2>Sharing ratio and balances</h2></header>
           <div class="body">
             <div class="grid2">
-              <div class="field"><label for="ines_pct">INES share (%)</label><input id="ines_pct" type="number" step="0.01" data-edit></div>
+              <div class="field">
+                <label for="ines_pct">INES share (%)</label>
+                <input id="ines_pct" type="number" step="0.01" data-edit>
+                <select class="no-print" id="use-ratio" data-edit hidden style="margin-top:4px"></select>
+              </div>
               <div class="field"><label for="client_pct">Client share (%)</label><input id="client_pct" type="number" step="0.01" data-edit></div>
               <div class="field">
                 <label for="previous_balance">Previous outstanding balance (&#8369;)</label>
                 <input id="previous_balance" type="number" step="0.01" data-edit>
                 <button type="button" class="quiet no-print" id="use-suggested" data-edit></button>
               </div>
-              <div class="field"><label for="interest_charged">Late payment interest (&#8369;)</label><input id="interest_charged" type="number" step="0.01" data-edit></div>
+              <div class="field">
+                <label for="interest_charged">Late payment interest (&#8369;)</label>
+                <input id="interest_charged" type="number" step="0.0001" data-edit>
+                <button type="button" class="quiet no-print" id="use-suggested-interest" data-edit></button>
+              </div>
               <div class="field"><label for="bill_date">Bill date</label><input id="bill_date" type="date" data-edit></div>
               <div class="field"><label for="due_date">Due date</label><input id="due_date" type="date" data-edit></div>
             </div>
@@ -160,10 +169,14 @@
 <script src="/js/app.js"></script>
 <script>
 const id = new URLSearchParams(location.search).get('id');
-let bill, me, lines = [], latest = null;
+let bill, me, lines = [], latest = null, configuredRatio = null;
 
 const g = (x) => document.getElementById(x);
 const val = (x) => g(x).value;
+// Late payment interest is entered to finer precision than a printed peso amount
+// (it isn't rounded away on save) — show up to 4 decimal places for it here so the
+// calculation record matches what was actually typed and saved.
+const moneyFine = (n) => PESO + Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
 
 function methodView() {
   const m = val('method');
@@ -196,28 +209,64 @@ function collect() {
   };
 }
 
+// Hours between two "HH:MM" clock times — mirrors the server-side calculation
+// in lib/billing.js so the worksheet can show the auto-split kWh instantly,
+// before the debounced /preview round trip comes back. Wraps past midnight
+// (e.g. 22:00–06:00 = 8 hours), matching a rate's active window on the project.
+function hoursFromRange(from, to) {
+  if (!from || !to) return null;
+  const [fh, fm] = from.split(':').map(Number);
+  const [th, tm] = to.split(':').map(Number);
+  if ([fh, fm, th, tm].some((n) => !isFinite(n))) return null;
+  let mins = (th * 60 + tm) - (fh * 60 + fm);
+  if (mins <= 0) mins += 24 * 60;
+  return mins / 60;
+}
+const round3 = (n) => Math.round((n + Number.EPSILON) * 1000) / 1000;
+const fmtHours = (n) => Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+
 function renderLines() {
   const body = document.querySelector('#rate-lines tbody');
-  body.innerHTML = lines.length ? lines.map((l, i) => `<tr>
+  body.innerHTML = lines.length ? lines.map((l, i) => {
+    const hours = hoursFromRange(l.time_from, l.time_to);
+    const auto = hours !== null;
+    const autoKwh = auto ? round3((latest?.energy_savings_kwh ?? 0) * (hours / 24)) : null;
+    return `<tr>
       <td><input class="l-label" value="${esc(l.label || '')}" data-edit></td>
       <td class="num"><input class="l-rate num" type="number" step="0.0001" value="${l.rate ?? ''}" data-edit></td>
-      <td class="num"><input class="l-kwh num" type="number" step="0.001" value="${l.kwh ?? ''}" data-edit></td>
-      <td class="num">${money((Number(l.rate) || 0) * (Number(l.kwh) || 0))}</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:4px;flex-wrap:nowrap">
+          <input class="l-from" type="time" value="${esc(l.time_from || '')}" data-edit style="width:auto">
+          <span style="color:var(--ink-soft)">&ndash;</span>
+          <input class="l-to" type="time" value="${esc(l.time_to || '')}" data-edit style="width:auto">
+        </div>
+        ${auto ? `<div style="font-size:.78rem;color:var(--ink-soft);margin-top:2px">${fmtHours(hours)} hrs of 24 &middot; auto-split</div>` : ''}
+      </td>
+      <td class="num"><input class="l-kwh num" type="number" step="0.001" value="${auto ? autoKwh : (l.kwh ?? '')}" ${auto ? 'disabled title="Computed automatically from the active hours"' : ''} data-edit></td>
+      <td class="num">${money((Number(l.rate) || 0) * (auto ? autoKwh : (Number(l.kwh) || 0)))}</td>
       <td class="num no-print"><button class="quiet danger" data-edit onclick="dropLine(${i})">Remove</button></td>
-    </tr>`).join('')
-    : '<tr><td colspan="5" class="empty">No rate lines yet. Load the project rates or add one.</td></tr>';
+    </tr>`;
+  }).join('')
+    : '<tr><td colspan="6" class="empty">No rate lines yet. Load the project rates or add one.</td></tr>';
 
   body.querySelectorAll('input').forEach((input, n) => {
+    const row = Math.floor(n / 5), field = ['label', 'rate', 'time_from', 'time_to', 'kwh'][n % 5];
     input.oninput = () => {
-      const row = Math.floor(n / 3), field = ['label', 'rate', 'kwh'][n % 3];
       lines[row][field] = input.value;
       preview();
+      scheduleAutosave();
     };
+    // A full re-render (not just on every keystroke) once a time field is
+    // committed, so the kWh cell flips to computed/disabled and the "X hrs
+    // of 24" hint appears right away, without disrupting the time picker.
+    if (field === 'time_from' || field === 'time_to') {
+      input.onchange = () => { renderLines(); preview(); scheduleAutosave(); };
+    }
   });
   if (readOnly(me) || !bill.editable) disableEditing();
 }
 
-function dropLine(i) { lines.splice(i, 1); renderLines(); preview(); }
+function dropLine(i) { lines.splice(i, 1); renderLines(); preview(); scheduleAutosave(); }
 
 let timer;
 function preview() {
@@ -227,8 +276,19 @@ function preview() {
       latest = await api(`/api/bills/${id}/preview`, { method: 'POST', body: collect() });
       renderTape(latest);
       document.querySelectorAll('#rate-lines tbody tr').forEach((tr, i) => {
-        const cell = tr.querySelectorAll('td')[3];
-        if (cell && lines[i]) cell.textContent = money((Number(lines[i].rate) || 0) * (Number(lines[i].kwh) || 0));
+        const line = lines[i];
+        if (!line) return;
+        const cells = tr.querySelectorAll('td');
+        const hours = hoursFromRange(line.time_from, line.time_to);
+        let kwhNum;
+        if (hours !== null) {
+          kwhNum = round3((latest.energy_savings_kwh ?? 0) * (hours / 24));
+          const kwhInput = cells[3]?.querySelector('input');
+          if (kwhInput) kwhInput.value = kwhNum;
+        } else {
+          kwhNum = Number(line.kwh) || 0;
+        }
+        if (cells[4]) cells[4].textContent = money((Number(line.rate) || 0) * kwhNum);
       });
     } catch (e) { /* keep the last good tape */ }
   }, 300);
@@ -261,7 +321,7 @@ function renderTape(r) {
     <div class="step"><h4>Statement summary</h4>
       <div class="line"><span>Current amount due</span><span>${money(r.amount_billed)}</span></div>
       <div class="line"><span>Previous balance</span><span>${money(r.previous_balance)}</span></div>
-      <div class="line"><span>Late payment interest</span><span>${money(r.interest_charged)}</span></div>
+      <div class="line"><span>Late payment interest</span><span>${moneyFine(r.interest_charged)}</span></div>
       <div class="line"><span>Adjustments</span><span>${money(r.adjustments_total)}</span></div>
       <div class="line"><span>Payments received</span><span>− ${money(r.payments_total)}</span></div>
     </div>
@@ -297,12 +357,40 @@ async function voidBill() {
   } catch (e) { toast(e.message, true); }
 }
 
-async function save() {
+// Persists the whole worksheet (everything collect() gathers — baseline inputs,
+// rate lines, sharing split, balances, dates, notes). Used by the "Save and
+// compute" button, by a quiet autosave a moment after typing stops, and as a
+// flush right before recording a payment or adjustment, since that used to
+// reload the page's data and silently discard anything not yet saved.
+let autosaveTimer = null;
+
+function scheduleAutosave() {
+  if (!bill || !bill.editable || readOnly(me)) return;
+  g('wk-status').textContent = 'Unsaved changes…';
+  clearTimeout(autosaveTimer);
+  autosaveTimer = setTimeout(() => saveWorksheet(false), 900);
+}
+
+async function saveWorksheet(explicit) {
+  if (!bill.editable || readOnly(me)) return true; // fields are locked — nothing to lose
+  clearTimeout(autosaveTimer);
+  autosaveTimer = null;
+  const statusEl = g('wk-status');
+  statusEl.textContent = 'Saving…';
   try {
     latest = await api('/api/bills/' + id, { method: 'PUT', body: collect() });
-    toast('Computation saved');
-    await load();
-  } catch (e) { toast(e.message, true); }
+    statusEl.textContent = 'Saved ' + new Date().toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' });
+    if (explicit) toast('Computation saved');
+    return true;
+  } catch (e) {
+    statusEl.textContent = 'Not saved — ' + e.message;
+    if (explicit) toast(e.message, true);
+    return false;
+  }
+}
+
+async function save() {
+  if (await saveWorksheet(true)) await load();
 }
 
 async function advance() {
@@ -323,6 +411,8 @@ async function revise() {
 }
 
 async function load() {
+  clearTimeout(autosaveTimer);
+  autosaveTimer = null;
   bill = await api('/api/bills/' + id);
   document.title = bill.statement_no + ' — M-Carbon Billing System';
   g('title').textContent = bill.statement_no;
@@ -353,14 +443,38 @@ async function load() {
   g('due_date').value = bill.due_date || '';
   g('notes').value = bill.notes || '';
   g('use-suggested').textContent = `Use calculated balance of ${money(bill.suggested_previous_balance)}`;
-  g('use-suggested').onclick = () => { g('previous_balance').value = bill.suggested_previous_balance; preview(); };
+  g('use-suggested').onclick = () => { g('previous_balance').value = bill.suggested_previous_balance; preview(); scheduleAutosave(); };
+  g('use-suggested-interest').textContent = `Use calculated interest of ${moneyFine(bill.suggested_interest)}`;
+  g('use-suggested-interest').onclick = () => { g('interest_charged').value = bill.suggested_interest; preview(); scheduleAutosave(); };
+
+  // Every sharing ratio configured on the project, oldest first, so the officer can
+  // apply any of them — not just the one matching this bill's period (that one is
+  // marked "current" using the same date resolution the server uses on bill creation).
+  const ratios = [...(bill.contract.sharing_ratios || [])].sort((a, b) => (a.effective_from < b.effective_from ? -1 : 1));
+  configuredRatio = ratios
+    .filter((r) => r.effective_from <= bill.period_end && (!r.effective_to || r.effective_to >= bill.period_end))
+    .sort((a, b) => (a.effective_from < b.effective_from ? 1 : -1))[0] || null;
+  const ratioSelect = g('use-ratio');
+  ratioSelect.hidden = !ratios.length;
+  ratioSelect.innerHTML = ['<option value="" selected>Apply a configured split…</option>']
+    .concat(ratios.map((r, i) => `<option value="${i}">${esc(r.label || 'Unlabeled')} — ${dateText(r.effective_from)}–${r.effective_to ? dateText(r.effective_to) : 'open'} (${dec(r.ines_pct)}% / ${dec(r.client_pct)}%)${configuredRatio === r ? ' · current' : ''}</option>`))
+    .join('');
+  ratioSelect.onchange = () => {
+    if (ratioSelect.value === '') return;
+    const r = ratios[Number(ratioSelect.value)];
+    g('ines_pct').value = r.ines_pct;
+    g('client_pct').value = r.client_pct;
+    preview();
+    scheduleAutosave();
+    ratioSelect.value = '';
+  };
 
   document.querySelector('#daily tbody').innerHTML = bill.daily.map((d) => `<tr data-date="${d.day_date}">
       <td>${dateText(d.day_date)}</td>
       <td class="num"><input class="d-kwh num" type="number" step="0.001" value="${d.actual_kwh ?? ''}" data-edit></td>
       <td class="num"><input class="d-hours num" type="number" step="0.25" min="0" max="24" value="${d.operating_hours ?? ''}" data-edit></td>
     </tr>`).join('');
-  document.querySelectorAll('#daily input').forEach((el) => (el.oninput = preview));
+  document.querySelectorAll('#daily input').forEach((el) => (el.oninput = () => { preview(); scheduleAutosave(); }));
 
   lines = (bill.rate_breakdown || []).length ? bill.rate_breakdown.map((l) => ({ ...l }))
     : (i.rate_lines || []).map((l) => ({ ...l }));
@@ -378,6 +492,8 @@ async function load() {
         <td class="num">${money(a.amount)}</td></tr>`).join('')}</tbody></table></div>`
     : '<div class="empty">No adjustments applied.</div>';
 
+  g('wk-status').textContent = '';
+
   g('trail').innerHTML = bill.trail.length ? `<table>
       <thead><tr><th>When</th><th>Who</th><th>Action</th><th>Detail</th></tr></thead>
       <tbody>${bill.trail.map((t) => `<tr><td>${esc(t.at)}</td><td>${esc(t.username || '')}</td>
@@ -388,14 +504,16 @@ async function load() {
   preview();
 }
 
-g('method').onchange = () => { methodView(); preview(); };
+g('method').onchange = () => { methodView(); preview(); scheduleAutosave(); };
 ['dashboard_daily_baseline','agreed_savings_pct','actual_kwh','ines_pct','client_pct','previous_balance','interest_charged']
-  .forEach((f) => (g(f).oninput = preview));
+  .forEach((f) => (g(f).oninput = () => { preview(); scheduleAutosave(); }));
+['bill_date', 'due_date', 'notes'].forEach((f) => (g(f).oninput = scheduleAutosave));
 
 g('apply-hours').onclick = () => {
   const h = g('bulk-hours').value;
   document.querySelectorAll('#daily .d-hours').forEach((el) => (el.value = h));
   preview();
+  scheduleAutosave();
 };
 
 g('pull-dashboard').onclick = async () => {
@@ -415,26 +533,33 @@ g('pull-dashboard').onclick = async () => {
     methodView();
     toast('Pulled from the M-Carbon Dashboard — review the baseline before saving.');
     preview();
+    scheduleAutosave();
   } catch (e) { toast(e.message, true); }
 };
 
-g('add-line').onclick = () => { lines.push({ label: '', rate: '', kwh: '' }); renderLines(); };
+g('add-line').onclick = () => { lines.push({ label: '', rate: '', time_from: '', time_to: '', kwh: '' }); renderLines(); scheduleAutosave(); };
 
 g('load-rates').onclick = () => {
-  lines = (bill.contract.rates || []).map((r) => ({ label: r.label, rate: r.rate, kwh: '' }));
+  // Rates that carry an active-hours window on the project (e.g. Solar
+  // 08:00–16:00) come in ready to auto-split; a rate with no window falls
+  // back to manual kWh entry, same as before.
+  lines = (bill.contract.rates || []).map((r) => ({
+    label: r.label, rate: r.rate, time_from: r.time_from || '', time_to: r.time_to || '', kwh: ''
+  }));
   if (!lines.length) return toast('This project has no rates configured yet.', true);
-  renderLines(); preview();
+  renderLines(); preview(); scheduleAutosave();
 };
 
 g('single-rate').onclick = () => {
   const savings = latest?.energy_savings_kwh ?? 0;
   const first = bill.contract.rates?.[0];
-  lines = [{ label: first?.label || 'Applicable rate', rate: first?.rate ?? '', kwh: savings }];
-  renderLines(); preview();
+  lines = [{ label: first?.label || 'Applicable rate', rate: first?.rate ?? '', time_from: '', time_to: '', kwh: savings }];
+  renderLines(); preview(); scheduleAutosave();
 };
 
 g('pay-form').onsubmit = async (e) => {
   e.preventDefault();
+  if (!(await saveWorksheet(false))) return; // don't discard unsaved worksheet edits
   try {
     await api(`/api/bills/${id}/payments`, { method: 'POST', body: {
       paid_on: g('pay-date').value, amount: g('pay-amount').value, reference: g('pay-ref').value
@@ -445,6 +570,7 @@ g('pay-form').onsubmit = async (e) => {
 
 g('adj-form').onsubmit = async (e) => {
   e.preventDefault();
+  if (!(await saveWorksheet(false))) return; // don't discard unsaved worksheet edits
   try {
     await api(`/api/bills/${id}/adjustments`, { method: 'POST', body: {
       adjusted_on: g('adj-date').value, amount: g('adj-amount').value, reason: g('adj-reason').value

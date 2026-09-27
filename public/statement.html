@@ -59,9 +59,22 @@
 
   .bs .note { margin-top: 24px; font-size: 10px; color: #333; }
 
-  @page { size: A4; margin: 10mm; }
+  /* No fixed paper size here — this lets the statement follow whatever paper
+     size/orientation the user picks in the print dialog (A4, Letter, Legal, …)
+     instead of forcing A4. #print-fit below scales the whole statement down,
+     if needed, so it still lands on exactly one page on that paper.
+
+     Margins are set to 0 here deliberately, with the whitespace built in as
+     real CSS padding on .bs instead. The print dialog's own margin preset
+     is unreliable — different browsers/printers treat "Default" very
+     differently, and there's no way for this page to know which one is in
+     effect. Keeping our own padding and asking for the dialog's "None" /
+     "No margins" option means the whitespace you see is always exactly
+     what this stylesheet says, not a guess. */
+  @page { margin: 0; }
   @media print {
-    .bs { border: 0; padding: 0; max-width: none; }
+    html, body { height: auto; }
+    .bs { border: 0; padding: 22px 26px 28px; max-width: none; }
     main { max-width: none; }
   }
   @media (max-width: 720px) {
@@ -81,10 +94,11 @@
         <h1>Billing statement</h1>
       </div>
       <div class="actions">
-        <button class="primary" onclick="window.print()">Print or save as PDF</button>
+        <button class="primary" onclick="printStatement()">Print or save as PDF</button>
+        <div style="font-size:11px;color:#666;margin-top:6px;max-width:260px;">Tip: in the print dialog, set Margins to "None" for the cleanest one-page fit.</div>
       </div>
     </div>
-    <div id="doc"></div>
+    <div id="print-fit"><div id="doc"></div></div>
   </main>
 </div>
 <script src="/js/app.js"></script>
@@ -249,7 +263,64 @@ function barChart(rows, key, color) {
     </div>
     ${b.notes || b.source === 'manual' ? `<div class="note">${b.source === 'manual' ? 'Consumption data for this period was entered manually (standalone mode). ' : ''}${b.notes ? 'Note: ' + esc(b.notes) : ''}</div>` : ''}
   </article>`;
+  requestAnimationFrame(fitStatementToPage);
 })().catch((e) => toast(e.message, true));
+
+/* Scale the statement down (never up) so it always lands on a single printed
+   page, whatever paper size is chosen in the print dialog. We can't ask the
+   browser what paper size was picked, so instead we target the tightest
+   available space across the common sizes (A4/Letter/Legal, portrait, 10mm
+   margins): the narrowest usable width (A4) and the shortest usable height
+   (Letter) — that box fits inside all three. Small safety margin included.
+
+   IMPORTANT: this uses the CSS `zoom` property, not `transform: scale()`.
+   `transform` only changes how a box is painted — the browser's print
+   engine still fragments/paginates the page using the box's original,
+   UNSCALED size, so a visually-shrunk statement can still split across two
+   pages (or leave a blank second page) even though it looks like it fits.
+   `zoom` instead triggers a real reflow at the smaller size, so the box the
+   paginator sees is genuinely smaller — that's what actually keeps it to
+   one page.
+
+   Target: with margins set to 0 (see @page above) and the print dialog's
+   margin preset set to "None"/"No margins", the whitespace comes entirely
+   from .bs's own CSS padding, which is already included in the height we
+   measure below. So the target here is close to the true physical page
+   size (A4's width, Letter's height — the tightest of the common sizes),
+   just short of it as a small safety pad against printer-driver rounding. */
+const DESIGN_W = 794;  // statement's normal design width in CSS px (~210mm)
+const SAFE_W = 784;    // just under A4's full width (793.7px), safety pad only
+const SAFE_H = 1046;   // just under Letter's full height (1056px), safety pad only
+
+function fitStatementToPage() {
+  const wrap = document.getElementById('print-fit');
+  const el = wrap && wrap.querySelector('.bs');
+  if (!el) return;
+  el.style.zoom = 1;
+  el.style.width = DESIGN_W + 'px';
+  const h = el.getBoundingClientRect().height;
+  if (!h) return;
+  const scale = Math.min(1, SAFE_W / DESIGN_W, SAFE_H / h);
+  el.style.zoom = scale < 1 ? scale : 1;
+}
+
+/* Some Chromium builds generate the print preview from a snapshot that's
+   taken before styles set inside a 'beforeprint' handler are reliably
+   reflected (a known timing quirk), which is why the scaling could silently
+   fail to apply even though the listener below is also in place as a
+   fallback for Ctrl+P / the browser's own print menu. Calling
+   fitStatementToPage() synchronously, right here in the button handler,
+   guarantees the shrink is committed to the DOM before window.print() ever
+   asks the browser to paginate. */
+function printStatement() {
+  fitStatementToPage();
+  window.print();
+}
+window.addEventListener('beforeprint', fitStatementToPage);
+window.addEventListener('afterprint', () => {
+  const el = document.querySelector('#print-fit .bs');
+  if (el) { el.style.zoom = ''; el.style.width = ''; }
+});
 </script>
 </body>
 </html>

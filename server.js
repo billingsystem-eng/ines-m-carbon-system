@@ -39,7 +39,18 @@ app.use('/api/auth', authRouter);
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
 app.get('/', (req, res) => {
-  res.redirect(req.session?.userId ? '/dashboard.html' : '/login.html');
+  if (!req.session?.userId) return res.redirect('/login.html');
+  res.redirect(req.session.role === 'viewer' ? '/bills.html' : '/dashboard.html');
+});
+
+// Viewers only get the billing list, an individual bill, its statement, and payment methods (read-only).
+const VIEWER_PAGES = new Set(['/bills.html', '/bill.html', '/statement.html', '/payment-methods.html']);
+app.get(/\.html$/, (req, res, next) => {
+  if (req.session?.userId && req.session.role === 'viewer' &&
+      req.path !== '/login.html' && !VIEWER_PAGES.has(req.path)) {
+    return res.redirect('/bills.html');
+  }
+  next();
 });
 
 // Everything below requires a logged-in session

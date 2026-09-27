@@ -37,6 +37,35 @@ function outstandingBefore(clientId, periodStart, excludeId) {
   return round(total, 2);
 }
 
+/** Late payment interest suggested for a new bill: for every earlier
+ *  finalised/issued bill that's still owed money and whose OWN due date has
+ *  already passed as of this bill's date, apply the contract's daily rate
+ *  to that bill's still-unpaid amount for however many days it's been late.
+ *  Simple (non-compounding) interest, summed across every overdue bill. */
+function suggestedInterest(clientId, periodStart, billDate, contractId, excludeId) {
+  const contract = db.prepare('SELECT late_interest_rate FROM contracts WHERE id = ?').get(contractId);
+  const dailyPct = Number(contract && contract.late_interest_rate) || 0;
+  if (!dailyPct || !billDate) return 0;
+
+  const rows = db.prepare(`
+    SELECT id, amount_billed, interest_charged, due_date FROM bills
+    WHERE client_id = ? AND period_start < ? AND status IN ('final','issued') AND id != ?`
+  ).all(clientId, periodStart, excludeId || 0);
+
+  let total = 0;
+  for (const r of rows) {
+    if (!r.due_date || billDate <= r.due_date) continue; // not overdue as of this bill's date
+    const paid = db.prepare('SELECT COALESCE(SUM(amount),0) s FROM payments WHERE bill_id = ?').get(r.id).s;
+    const adj = db.prepare('SELECT COALESCE(SUM(amount),0) s FROM adjustments WHERE bill_id = ?').get(r.id).s;
+    const outstanding = round(r.amount_billed + r.interest_charged + adj - paid, 2);
+    if (outstanding <= 0) continue;
+    const daysLate = daysBetween(r.due_date, billDate) - 1; // days strictly after the due date
+    if (daysLate <= 0) continue;
+    total += outstanding * (dailyPct / 100) * daysLate;
+  }
+  return round(total, 4);
+}
+
 function totalsFor(billId) {
   return {
     payments_total: round(db.prepare('SELECT COALESCE(SUM(amount),0) s FROM payments WHERE bill_id = ?').get(billId).s, 2),
@@ -87,11 +116,12 @@ function billHistory(bill) {
 // --- List ---
 
 router.get('/', (req, res) => {
-  const { client_id, status, from, to } = req.query;
+  const { client_id, project_id, status, from, to } = req.query;
   let sql = `SELECT b.*, c.name AS client_name, c.account_no, p.name AS project_name
              FROM bills b JOIN clients c ON c.id = b.client_id JOIN projects p ON p.id = b.project_id WHERE 1=1`;
   const args = [];
   if (client_id) { sql += ' AND b.client_id = ?'; args.push(client_id); }
+  if (project_id) { sql += ' AND b.project_id = ?'; args.push(project_id); }
   if (status) { sql += ' AND b.status = ?'; args.push(status); }
   if (from) { sql += ' AND b.period_end >= ?'; args.push(from); }
   if (to) { sql += ' AND b.period_start <= ?'; args.push(to); }
@@ -153,6 +183,9 @@ router.get('/:id', (req, res) => {
   const bill = fullBill(req.params.id);
   if (!bill) return res.status(404).json({ error: 'Bill not found.' });
   bill.suggested_previous_balance = outstandingBefore(bill.client_id, bill.period_start, bill.id);
+  bill.suggested_interest = suggestedInterest(
+    bill.client_id, bill.period_start, bill.bill_date, bill.contract_id, bill.id
+  );
   res.json(bill);
 });
 

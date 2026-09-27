@@ -1,13 +1,12 @@
 const express = require('express');
 const db = require('../db');
-const { requireRole } = require('../middleware/auth');
+const { canEdit } = require('../middleware/auth');
 const audit = require('../lib/audit');
 
 const router = express.Router();
 
-// Anyone signed in can read (the statement page needs them); only admins change them,
-// because they print on every statement.
-const adminOnly = requireRole('admin');
+// Anyone signed in can read (the statement page needs them); admins and billing
+// officers can change them, same as the rest of the billing data.
 
 const text = (v, max) => String(v ?? '').trim().slice(0, max);
 
@@ -16,7 +15,7 @@ router.get('/', (req, res) => {
   res.json(db.prepare(`SELECT id, name, details, active FROM payment_methods ${where} ORDER BY id`).all());
 });
 
-router.post('/', adminOnly, (req, res) => {
+router.post('/', canEdit, (req, res) => {
   const name = text(req.body?.name, 120);
   if (!name) return res.status(400).json({ error: 'A payment method name is required.' });
   const details = text(req.body?.details, 600);
@@ -25,7 +24,7 @@ router.post('/', adminOnly, (req, res) => {
   res.status(201).json(db.prepare('SELECT * FROM payment_methods WHERE id = ?').get(info.lastInsertRowid));
 });
 
-router.put('/:id', adminOnly, (req, res) => {
+router.put('/:id', canEdit, (req, res) => {
   const id = Number(req.params.id);
   const cur = db.prepare('SELECT * FROM payment_methods WHERE id = ?').get(id);
   if (!cur) return res.status(404).json({ error: 'Payment method not found.' });
@@ -44,7 +43,7 @@ router.put('/:id', adminOnly, (req, res) => {
   res.json(db.prepare('SELECT * FROM payment_methods WHERE id = ?').get(id));
 });
 
-router.delete('/:id', adminOnly, (req, res) => {
+router.delete('/:id', canEdit, (req, res) => {
   const id = Number(req.params.id);
   const cur = db.prepare('SELECT * FROM payment_methods WHERE id = ?').get(id);
   if (!cur) return res.status(404).json({ error: 'Payment method not found.' });

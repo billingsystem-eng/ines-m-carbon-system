@@ -63,7 +63,7 @@ CREATE TABLE IF NOT EXISTS contracts (
   id INTEGER PRIMARY KEY,
   project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
   start_date TEXT, end_date TEXT,
-  late_interest_rate REAL DEFAULT 0,          -- % per month on overdue balance
+  late_interest_rate REAL DEFAULT 0,          -- % per day on overdue balance, applied automatically per bill
   settlement_day INTEGER DEFAULT 25,          -- cut-off day of month
   bill_day INTEGER DEFAULT 1,
   payment_terms_days INTEGER DEFAULT 15,
