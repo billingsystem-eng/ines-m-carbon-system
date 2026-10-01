@@ -87,13 +87,48 @@ async function shell() {
     <nav>${NAV.filter((n) => (!n.adminOnly || me.role === 'admin') && (me.role !== 'viewer' || VIEWER_PAGES.includes(n.href)))
       .map((n) => `<a href="${n.href}" class="${here === n.href || (n.also || []).includes(here) ? 'on' : ''}">${navIcon(n.icon)}<span>${n.label}</span></a>`)
       .join('')}</nav>
-    <div class="who"><b>${esc(me.full_name)}</b>${roleText}<br><button id="signout">${navIcon('signout')}Sign out</button></div>`;
+    <div class="who"><b>${esc(me.full_name)}</b>${roleText}<br><button id="chpw" type="button">Change password</button> <button id="signout">${navIcon('signout')}Sign out</button></div>`;
+  rail.querySelector('#chpw').onclick = openPasswordDialog;
   rail.querySelector('#signout').onclick = async () => {
     await api('/api/auth/logout', { method: 'POST' });
     location.href = '/login.html';
   };
   document.body.dataset.role = me.role;
   return me;
+}
+
+/** Lets any signed-in user change their own password (needs the current one). */
+function openPasswordDialog() {
+  if (document.getElementById('pw-dialog')) return;
+  const dlg = document.createElement('dialog');
+  dlg.id = 'pw-dialog';
+  dlg.innerHTML = `
+    <form method="dialog" id="pw-form" autocomplete="off">
+      <h2>Change password</h2>
+      <div class="field"><label for="pw-cur">Current password</label><input id="pw-cur" type="password" autocomplete="current-password" required></div>
+      <div class="field"><label for="pw-new">New password (at least 8 characters)</label><input id="pw-new" type="password" autocomplete="new-password" minlength="8" required></div>
+      <div class="field"><label for="pw-rep">Repeat new password</label><input id="pw-rep" type="password" autocomplete="new-password" minlength="8" required></div>
+      <p id="pw-err" class="pw-err" role="alert" hidden></p>
+      <div class="pw-actions"><button type="button" id="pw-cancel">Cancel</button><button type="submit" class="primary">Change password</button></div>
+    </form>`;
+  document.body.appendChild(dlg);
+  const g = (id) => dlg.querySelector('#' + id);
+  const close = () => { dlg.close(); dlg.remove(); };
+  g('pw-cancel').onclick = close;
+  dlg.addEventListener('cancel', () => dlg.remove());
+  g('pw-form').onsubmit = async (e) => {
+    e.preventDefault();
+    const err = g('pw-err');
+    err.hidden = true;
+    if (g('pw-new').value !== g('pw-rep').value) { err.textContent = 'The new passwords do not match.'; err.hidden = false; return; }
+    try {
+      await api('/api/auth/password', { method: 'POST', body: { current_password: g('pw-cur').value, new_password: g('pw-new').value } });
+      close();
+      toast('Password changed');
+    } catch (ex) { err.textContent = ex.message; err.hidden = false; }
+  };
+  dlg.showModal();
+  g('pw-cur').focus();
 }
 
 /** Viewers can read everything but change nothing. */
