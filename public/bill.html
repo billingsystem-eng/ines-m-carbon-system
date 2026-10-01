@@ -166,6 +166,7 @@
     </div>
   </main>
 </div>
+<script src="/js/i18n.js"></script>
 <script src="/js/app.js"></script>
 <script>
 const id = new URLSearchParams(location.search).get('id');
@@ -176,7 +177,7 @@ const val = (x) => g(x).value;
 // Late payment interest is entered to finer precision than a printed peso amount
 // (it isn't rounded away on save) — show up to 4 decimal places for it here so the
 // calculation record matches what was actually typed and saved.
-const moneyFine = (n) => PESO + Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+const moneyFine = (n) => PESO + Number(n || 0).toLocaleString(LOCALE(), { minimumFractionDigits: 2, maximumFractionDigits: 4 });
 
 function methodView() {
   const m = val('method');
@@ -223,7 +224,7 @@ function hoursFromRange(from, to) {
   return mins / 60;
 }
 const round3 = (n) => Math.round((n + Number.EPSILON) * 1000) / 1000;
-const fmtHours = (n) => Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+const fmtHours = (n) => Number(n || 0).toLocaleString(LOCALE(), { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 
 function renderLines() {
   const body = document.querySelector('#rate-lines tbody');
@@ -379,7 +380,7 @@ async function saveWorksheet(explicit) {
   statusEl.textContent = 'Saving…';
   try {
     latest = await api('/api/bills/' + id, { method: 'PUT', body: collect() });
-    statusEl.textContent = 'Saved ' + new Date().toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' });
+    statusEl.textContent = 'Saved ' + new Date().toLocaleTimeString(LOCALE(), { hour: '2-digit', minute: '2-digit' });
     if (explicit) toast('Computation saved');
     return true;
   } catch (e) {

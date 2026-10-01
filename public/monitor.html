@@ -261,13 +261,14 @@
     </div>
   </main>
 </div>
+<script src="/js/i18n.js"></script>
 <script src="/js/app.js"></script>
 <script>
 (function () {
 'use strict';
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const nf = (n, d = 0) => Number(n).toLocaleString('en-PH', { minimumFractionDigits: d, maximumFractionDigits: d });
+const nf = (n, d = 0) => Number(n).toLocaleString(LOCALE(), { minimumFractionDigits: d, maximumFractionDigits: d });
 
 const state = { view: null, pid: null, projects: [], meters: [], es: null, live: [], lastTs: 0, range: 'day', rate: 11.5, regDigits: 0, overview: null };
 let liveChart, histChart, h24Chart, ppChart;
@@ -311,7 +312,7 @@ function makeCharts() {
       scales: { x: { grid: { display: false }, ticks: { maxTicksLimit: 8, maxRotation: 0 } }, y: { beginAtZero: true, grid, title: { display: true, text: 'kWh' } } } },
   });
 }
-const clock = (t) => new Date(t).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+const clock = (t) => new Date(t).toLocaleTimeString(LOCALE(), { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
 function drawLive() {
   liveChart.data.labels = state.live.map((p) => clock(p.t));
   liveChart.data.datasets[0].data = state.live.map((p) => p.total);
@@ -322,7 +323,7 @@ async function loadHistory() {
   const rows = await get(`/projects/${pid}/history?range=${range}`);
   if (pid !== state.pid || range !== state.range) return;
   const fmt = { day: { hour: '2-digit', minute: '2-digit', hour12: false }, week: { weekday: 'short' }, month: { month: 'short', day: 'numeric' } }[range];
-  histChart.data.labels = rows.map((r) => new Date(r.t).toLocaleString('en-PH', fmt));
+  histChart.data.labels = rows.map((r) => new Date(r.t).toLocaleString(LOCALE(), fmt));
   histChart.data.datasets[0].data = rows.map((r) => r.kwh);
   histChart.update();
 }
@@ -415,7 +416,7 @@ function setView(v) {
 function select(id) { return id === 'overview' ? openOverview() : openProject(id); }
 
 /* ---------- overview: national summary and map ---------- */
-const hhmm = (t) => new Date(t).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', hour12: false });
+const hhmm = (t) => new Date(t).toLocaleTimeString(LOCALE(), { hour: '2-digit', minute: '2-digit', hour12: false });
 
 async function openOverview() {
   markTabs('overview');
@@ -475,7 +476,7 @@ function renderOverview(o) {
   const peak = o.hourly.reduce((a, b) => (b.kwh > a.kwh ? b : a));
   $('#peak').textContent = `Peak ${nf(peak.kwh)} kWh at ${hhmm(peak.t)}`;
 
-  ppChart.data.labels = o.prePost.map((r) => new Date(r.t).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' }));
+  ppChart.data.labels = o.prePost.map((r) => new Date(r.t).toLocaleDateString(LOCALE(), { month: 'short', day: 'numeric' }));
   ppChart.data.datasets[0].data = o.prePost.map((r) => r.before);
   ppChart.data.datasets[1].data = o.prePost.map((r) => r.after);
   ppChart.update();

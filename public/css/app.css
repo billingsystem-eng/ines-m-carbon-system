@@ -8,6 +8,11 @@
   --surface: #ffffff;
   --rule: #d2dad5;
   --rule-strong: #aab6b0;
+  --leaf: #5b9a2e;            /* M-Carbon logo green, deepened for text contrast */
+  --leaf-dark: #3f7421;
+  --leaf-line: #b9d49a;
+  --leaf-tint: #eaf4dc;
+  --leaf-tint-hover: #dcecc6;
   --signal: #0c6b5a;
   --signal-tint: #e3efeb;
   --amber: #96600a;
@@ -42,7 +47,7 @@ h3 { font-size: 0.92rem; color: var(--ink-soft); font-weight: 600; }
 
 /* ---------- Shell ---------- */
 
-.shell { display: grid; grid-template-columns: 216px 1fr; min-height: 100vh; }
+.shell { display: grid; grid-template-columns: 252px 1fr; min-height: 100vh; }
 
 .rail {
   background: var(--ink);
@@ -52,25 +57,35 @@ h3 { font-size: 0.92rem; color: var(--ink-soft); font-weight: 600; }
   position: sticky; top: 0; height: 100vh;
   padding-top: calc(20px + env(safe-area-inset-top, 0px));
 }
-.rail .mark { padding: 0 20px 22px; line-height: 1.2; }
-.rail .mark b { color: #fff; font-size: 1rem; display: block; letter-spacing: -0.01em; }
-.rail .mark span { font-size: 0.74rem; color: #7e948e; }
+.rail .mark { padding: 0 24px 26px; line-height: 1.25; }
+.rail .mark b { color: #fff; font-size: 1.1rem; display: block; letter-spacing: -0.01em; }
+.rail .mark span { font-size: 0.8rem; color: #7e948e; }
 .rail nav { display: flex; flex-direction: column; gap: 1px; }
 .rail nav a {
-  color: #cfdbd7; padding: 8px 20px; font-size: 0.9rem;
+  color: #cfdbd7; padding: 11px 24px; font-size: 0.97rem;
   border-left: 3px solid transparent;
+  display: flex; align-items: center; gap: 13px;
 }
+.rail .nav-ico {
+  width: 21px; height: 21px; flex: none; stroke: currentColor; fill: none;
+  stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round;
+}
+.rail nav a .nav-ico { color: #8fa39e; }
+.rail nav a:hover .nav-ico { color: #cfe3ae; }
+.rail nav a.on .nav-ico { color: #9fd36a; }
 .rail nav a:hover { background: #1e302d; text-decoration: none; }
 .rail nav a.on { background: #1e302d; border-left-color: var(--signal); color: #fff; }
 .rail .who {
-  margin-top: auto; padding: 14px 20px 0; border-top: 1px solid #263b37;
-  font-size: 0.8rem; color: #8fa39e;
+  margin-top: auto; padding: 16px 24px 0; border-top: 1px solid #263b37;
+  font-size: 0.86rem; color: #8fa39e;
 }
 .rail .who b { display: block; color: #e6eeeb; font-weight: 600; }
 .rail .who button {
-  background: none; border: 0; color: #8fa39e; padding: 6px 0; cursor: pointer;
-  font: inherit; text-decoration: underline;
+  display: inline-flex; align-items: center; gap: 7px;
+  background: transparent; border: 1px solid #8fb34a; color: #cfe3ae; padding: 7px 14px; margin-top: 8px; cursor: pointer;
+  font: inherit; text-decoration: none;
 }
+.rail .who button .nav-ico { width: 16px; height: 16px; }
 
 main { padding: 26px 30px 64px; max-width: 1180px; }
 .page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
@@ -111,13 +126,17 @@ fieldset { border: 0; padding: 0; margin: 0 0 14px; }
 
 button, .btn {
   font: inherit; font-weight: 500; padding: 7px 14px; border-radius: var(--radius);
-  border: 1px solid var(--rule-strong); background: var(--surface); color: var(--ink); cursor: pointer;
+  border: 1px solid var(--leaf); background: var(--leaf-tint); color: var(--leaf-dark); cursor: pointer;
+  transition: background .12s, border-color .12s, color .12s;
 }
-button:hover, .btn:hover { border-color: var(--ink-soft); text-decoration: none; }
-button.primary, .btn.primary { background: var(--signal); border-color: var(--signal); color: #fff; }
-button.primary:hover { background: #0a5748; }
-button.quiet { border-color: transparent; background: transparent; color: var(--signal); padding: 4px 6px; }
-button.danger { color: var(--alert); border-color: #ddc2be; }
+button:hover, .btn:hover { background: var(--leaf-tint-hover); border-color: var(--leaf-dark); text-decoration: none; }
+button.primary, .btn.primary { background: var(--leaf); border-color: var(--leaf); color: #fff; }
+button.primary:hover, .btn.primary:hover { background: var(--leaf-dark); border-color: var(--leaf-dark); }
+button.quiet { border: 1px solid var(--leaf-line); background: #fff; color: var(--leaf-dark); padding: 4px 9px; }
+button.quiet:hover { background: var(--leaf-tint); border-color: var(--leaf); }
+button.danger, button.quiet.danger { color: var(--alert); border-color: #d9aaa4; background: var(--alert-tint); }
+button.danger:hover, button.quiet.danger:hover { background: #f3d6d2; border-color: var(--alert); }
+button.primary.danger { background: var(--alert); border-color: var(--alert); color: #fff; }
 button:disabled { opacity: 0.5; cursor: not-allowed; }
 .actions { display: flex; gap: 8px; flex-wrap: wrap; }
 

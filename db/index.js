@@ -170,6 +170,38 @@ CREATE TABLE IF NOT EXISTS payment_methods (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- Outright-purchase quotations (no contract / monthly billing)
+CREATE TABLE IF NOT EXISTS quotations (
+  id INTEGER PRIMARY KEY,
+  quote_no TEXT NOT NULL UNIQUE,              -- e.g. MC2026-001
+  quote_date TEXT NOT NULL,
+  valid_until TEXT NOT NULL,
+  client_id INTEGER REFERENCES clients(id),   -- optional link to an existing client
+  customer_name TEXT NOT NULL,
+  client_ref_id TEXT,                         -- the client's own PR / reference number
+  submitted_by TEXT,
+  contact_no TEXT,
+  vat_rate REAL NOT NULL DEFAULT 12,
+  terms TEXT,
+  prepared_by_name TEXT, prepared_by_title TEXT,
+  approved_by_name TEXT, approved_by_title TEXT,
+  contact_name TEXT, contact_phone TEXT, contact_email TEXT,
+  status TEXT NOT NULL DEFAULT 'draft',       -- draft | sent | accepted | declined
+  created_by TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE TABLE IF NOT EXISTS quotation_items (
+  id INTEGER PRIMARY KEY,
+  quotation_id INTEGER NOT NULL REFERENCES quotations(id),
+  position INTEGER NOT NULL DEFAULT 0,
+  description TEXT NOT NULL,
+  quantity REAL NOT NULL DEFAULT 1,
+  unit TEXT NOT NULL DEFAULT 'pieces',
+  unit_price REAL NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_quotation_items ON quotation_items(quotation_id, position);
+
 CREATE INDEX IF NOT EXISTS idx_bills_client ON bills(client_id, period_start);
 CREATE INDEX IF NOT EXISTS idx_audit_entity ON audit_log(entity, entity_id);
 `);
@@ -183,7 +215,13 @@ function addColumn(table, def) {
 addColumn('projects', 'family_id TEXT');
 addColumn('projects', 'family_id_name TEXT');       // snapshot of the dashboard site's name at link time
 addColumn('projects', 'family_id_district TEXT');   // snapshot of its district at link time, for display + drift checks
-addColumn('bills', 'dashboard_synced_at TEXT');     
+addColumn('bills', 'dashboard_synced_at TEXT');
+// Payment-method approval: only an admin can approve. Existing rows default to
+// 'approved' so statements keep printing them; new rows are inserted explicitly.
+addColumn('payment_methods', "approval_status TEXT NOT NULL DEFAULT 'approved'"); // pending | approved
+addColumn('payment_methods', 'approved_by TEXT');
+addColumn('payment_methods', 'approved_at TEXT');
+addColumn('payment_methods', 'created_by TEXT');     
 
 // Seed a first administrator so the app is usable on first run.
 const count = db.prepare('SELECT COUNT(*) c FROM users').get().c;

@@ -52,6 +52,7 @@
     </div>
   </main>
 </div>
+<script src="/js/i18n.js"></script>
 <script src="/js/app.js"></script>
 <script src="/js/vendor/chart.umd.js"></script>
 <script>
@@ -64,8 +65,8 @@ const STATUS_COLORS = {
   'Project Complete': '#8a9a95'
 };
 const FALLBACK_COLOR = '#b9c4bf';
-const monthName = (ym) => new Date(ym + '-01T00:00:00').toLocaleDateString('en-PH', { month: 'short', year: 'numeric' });
-const compactNum = new Intl.NumberFormat('en-PH', { notation: 'compact', maximumFractionDigits: 1 });
+const monthName = (ym) => new Date(ym + '-01T00:00:00').toLocaleDateString(LOCALE(), { month: 'short', year: 'numeric' });
+const compactNum = new Intl.NumberFormat(LOCALE(), { notation: 'compact', maximumFractionDigits: 1 });
 
 function statusChart(rows) {
   const total = rows.reduce((t, r) => t + r.n, 0);

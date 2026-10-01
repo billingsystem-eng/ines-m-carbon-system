@@ -1,6 +1,9 @@
 const express = require('express');
 const db = require('../db');
-const { canEdit } = require('../middleware/auth');
+// Clients and projects are set up by administrators only. Billing officers
+// can view them (and bill against them) but cannot create, edit or delete.
+const { requireRole } = require('../middleware/auth');
+const canEdit = requireRole('admin');
 const audit = require('../lib/audit');
 const dashboard = require('../lib/dashboard');
 
