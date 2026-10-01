@@ -3,7 +3,10 @@ const db = require('../db');
 const { round } = require('../lib/billing');
 const { STATUSES } = require('./clients');
 
+const { notViewer } = require('../middleware/auth');
+
 const router = express.Router();
+router.use(notViewer);
 
 router.get('/overview', (req, res) => {
   const one = (sql, ...a) => db.prepare(sql).get(...a);

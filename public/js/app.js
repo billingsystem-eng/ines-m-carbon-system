@@ -67,8 +67,9 @@ const NAV = [
   { href: '/payment-methods.html', label: 'Payment method', icon: 'payment' }
 ];
 
-/** Pages a viewer is allowed to open: the billing list, a bill, its statement, and payment methods (read-only). */
-const VIEWER_PAGES = ['/bills.html', '/bill.html', '/statement.html', '/payment-methods.html'];
+/** Pages a viewer (client login) may open, all read-only: billing, quotations, live monitor, payment methods. */
+const VIEWER_PAGES = ['/bills.html', '/bill.html', '/statement.html', '/payment-methods.html',
+  '/quotations.html', '/quotation-print.html', '/monitor.html'];
 
 /** Renders the left rail and returns the signed-in user. */
 async function shell() {

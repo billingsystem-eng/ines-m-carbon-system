@@ -38,16 +38,19 @@ async function load() {
   g('list').innerHTML = d.quotations.length ? `<table><thead><tr>
       <th>Quote no.</th><th>Date</th><th>Customer</th><th>Valid until</th><th class="num">Total (VAT inc)</th><th>Status</th><th></th></tr></thead><tbody>` +
     d.quotations.map((r) => `<tr>
-      <td><a href="/quotation.html?id=${r.id}">${esc(r.quote_no)}</a></td><td>${dateText(r.quote_date)}</td>
+      <td><a href="${readOnly(me) ? '/quotation-print.html' : '/quotation.html'}?id=${r.id}">${esc(r.quote_no)}</a></td><td>${dateText(r.quote_date)}</td>
       <td>${esc(r.customer_name)}${r.client_ref_id ? `<div style="font-size:.82rem;color:var(--ink-soft)">${esc(r.client_ref_id)}</div>` : ''}</td>
       <td>${dateText(r.valid_until)}</td><td class="num">${money(r.total)}</td>
       <td><span class="pill ${PILL[r.status]}">${LABEL[r.status]}</span></td>
       <td class="actions"><a class="btn" href="/quotation-print.html?id=${r.id}">View quotation</a></td></tr>`).join('') + '</tbody></table>'
-    : '<div class="empty">No quotations yet. Create one to get started.</div>';
+    : `<div class="empty">${readOnly(me) ? 'No quotations have been sent to you yet.' : 'No quotations yet. Create one to get started.'}</div>`;
 }
 (async () => {
   me = await shell();
-  if (readOnly(me)) g('new-btn').hidden = true;
+  if (readOnly(me)) {
+    g('new-btn').hidden = true;
+    document.querySelector('.page-head p').textContent = 'Quotations prepared for you.';
+  }
   g('q').oninput = () => { clearTimeout(g('q')._t); g('q')._t = setTimeout(load, 250); };
   g('status').onchange = load;
   load();

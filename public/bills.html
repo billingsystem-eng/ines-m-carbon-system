@@ -100,7 +100,7 @@ async function load() {
       <td class="num">${money(b.total_due)}</td>
       <td class="num">${removeCell(b, me)}</td>
       </tr>`).join('')}</tbody></table>`
-    : '<div class="empty">No billing periods match these filters.</div>';
+    : `<div class="empty">${readOnly(me) ? 'No bill has been issued to you yet. Your statement will appear here as soon as it is issued.' : 'No billing periods match these filters.'}</div>`;
   document.querySelectorAll('.remove-bill').forEach((btn) => {
     btn.onclick = () => removeBill(Number(btn.dataset.id), btn.dataset.statement);
   });
@@ -111,6 +111,7 @@ async function load() {
 }
 
 function removeCell(b, me) {
+  if (readOnly(me)) return '';
   if (b.status === 'void') {
     if (me?.role !== 'admin') return `<button class="quiet" disabled title="Only an administrator can delete a billing period.">Delete</button>`;
     return `<button class="quiet danger delete-bill" data-edit data-id="${b.id}" data-statement="${esc(b.statement_no)}">Delete</button>`;
@@ -178,7 +179,13 @@ fclient.onchange = () => { refreshSiteOptions(); load(); };
 
 (async () => {
   me = await shell();
-  if (readOnly(me)) disableEditing();
+  if (readOnly(me)) {
+    // Client login: only issued bills of their own client are returned, so these controls are meaningless.
+    document.getElementById('new').hidden = true;
+    fclient.parentElement.hidden = true;
+    fstatus.parentElement.hidden = true;
+    document.querySelector('.page-head p').textContent = 'Your issued billing statements.';
+  }
   const { projects } = await api('/api/projects');
   const sel = document.getElementById('project');
   projects.forEach((p) => sel.add(new Option(`${p.client_name} — ${p.name}`, p.id)));

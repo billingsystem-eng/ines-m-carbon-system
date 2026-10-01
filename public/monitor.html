@@ -609,21 +609,28 @@ async function openProject(id) {
   } catch (err) { showFault(err); }
 }
 
-async function boot() {
+async function boot(me) {
   if (!liveChart) { buildRegister($('#register'), 3, 1); makeCharts(); }
   try {
     const cfg = await get('/config');
     state.rate = cfg.rate;
     $('#demoBanner').hidden = cfg.mode !== 'mock';
     state.projects = await get('/projects');
-    $('#tabs').innerHTML = '<button class="tab" role="tab" data-id="overview" aria-selected="false">Overview</button>'
+    const staff = me.role !== 'viewer'; // the national overview mixes every client's sites
+    $('#tabs').innerHTML = (staff ? '<button class="tab" role="tab" data-id="overview" aria-selected="false">Overview</button>' : '')
       + state.projects.map((p) => `<button class="tab" role="tab" data-id="${esc(p.id)}" aria-selected="false">${esc(p.name)}</button>`).join('');
     document.querySelectorAll('.tab').forEach((t) => t.addEventListener('click', () => select(t.dataset.id)));
-    select('overview');
+    if (staff) select('overview');
+    else if (state.projects.length) select(state.projects[0].id);
+    else {
+      $('#overviewView').hidden = true; $('#projectView').hidden = true;
+      $('#notice').textContent = 'No monitored site is linked to your account yet. Please contact INES Solutions.';
+      $('#notice').hidden = false;
+    }
   } catch (err) { showFault(err); }
 }
 
-(async () => { try { await shell(); } catch (_) { return; } boot(); })();
+(async () => { let me; try { me = await shell(); } catch (_) { return; } boot(me); })();
 })();
 </script>
 </body>

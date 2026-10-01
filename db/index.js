@@ -216,6 +216,8 @@ addColumn('projects', 'family_id TEXT');
 addColumn('projects', 'family_id_name TEXT');       // snapshot of the dashboard site's name at link time
 addColumn('projects', 'family_id_district TEXT');   // snapshot of its district at link time, for display + drift checks
 addColumn('bills', 'dashboard_synced_at TEXT');
+// A viewer is a client login: they only ever see data belonging to this client.
+addColumn('users', 'client_id INTEGER REFERENCES clients(id)');
 // Payment-method approval: only an admin can approve. Existing rows default to
 // 'approved' so statements keep printing them; new rows are inserted explicitly.
 addColumn('payment_methods', "approval_status TEXT NOT NULL DEFAULT 'approved'"); // pending | approved

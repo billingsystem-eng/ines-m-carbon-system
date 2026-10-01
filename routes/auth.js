@@ -1,7 +1,7 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const db = require('../db');
-const { requireAuth, requireRole } = require('../middleware/auth');
+const { requireAuth, requireRole, viewerScope } = require('../middleware/auth');
 const audit = require('../lib/audit');
 
 const router = express.Router();
@@ -29,11 +29,13 @@ router.post('/logout', (req, res) => {
 
 router.get('/me', (req, res) => {
   if (!req.session.userId) return res.status(401).json({ error: 'Not signed in.' });
+  const scope = viewerScope(req);
   res.json({
     id: req.session.userId,
     username: req.session.username,
     full_name: req.session.fullName,
-    role: req.session.role
+    role: req.session.role,
+    client_id: scope ? scope.clientId : null
   });
 });
 
@@ -54,11 +56,12 @@ router.post('/password', requireAuth, (req, res) => {
 // --- User management (administrators only) ---
 
 router.get('/users', requireRole('admin'), (req, res) => {
-  res.json(db.prepare('SELECT id, username, full_name, role, active, created_at FROM users ORDER BY username').all());
+  res.json(db.prepare(`SELECT u.id, u.username, u.full_name, u.role, u.active, u.created_at, u.client_id, c.name AS client_name
+    FROM users u LEFT JOIN clients c ON c.id = u.client_id ORDER BY u.username`).all());
 });
 
 router.post('/users', requireRole('admin'), (req, res) => {
-  const { username, full_name, role, password } = req.body || {};
+  const { username, full_name, role, password, client_id } = req.body || {};
   if (!username || !full_name || !password) {
     return res.status(400).json({ error: 'Username, full name and password are required.' });
   }
@@ -66,10 +69,17 @@ router.post('/users', requireRole('admin'), (req, res) => {
   if (!['admin', 'billing_officer', 'viewer'].includes(role)) {
     return res.status(400).json({ error: 'Pick a valid role.' });
   }
+  let clientId = null;
+  if (role === 'viewer' && client_id) {
+    if (!db.prepare('SELECT 1 FROM clients WHERE id = ?').get(client_id)) {
+      return res.status(400).json({ error: 'That client does not exist.' });
+    }
+    clientId = Number(client_id);
+  }
   try {
     const info = db
-      .prepare('INSERT INTO users (username, password_hash, full_name, role) VALUES (?,?,?,?)')
-      .run(username.trim(), bcrypt.hashSync(password, 10), full_name.trim(), role);
+      .prepare('INSERT INTO users (username, password_hash, full_name, role, client_id) VALUES (?,?,?,?,?)')
+      .run(username.trim(), bcrypt.hashSync(password, 10), full_name.trim(), role, clientId);
     audit.log(req, 'user', info.lastInsertRowid, 'create', `Created user ${username} (${role})`);
     res.json({ id: info.lastInsertRowid });
   } catch (e) {
@@ -79,23 +89,31 @@ router.post('/users', requireRole('admin'), (req, res) => {
 
 router.patch('/users/:id', requireRole('admin'), (req, res) => {
   const id = Number(req.params.id);
-  const { full_name, role, active, password } = req.body || {};
+  const { full_name, role, active, password, client_id } = req.body || {};
   const user = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
   if (!user) return res.status(404).json({ error: 'User not found.' });
   if (id === req.session.userId && active === 0) {
     return res.status(400).json({ error: 'You cannot deactivate your own account.' });
   }
-  db.prepare('UPDATE users SET full_name = ?, role = ?, active = ? WHERE id = ?').run(
+  let clientId = user.client_id;
+  if (client_id !== undefined) {
+    if (client_id && !db.prepare('SELECT 1 FROM clients WHERE id = ?').get(client_id)) {
+      return res.status(400).json({ error: 'That client does not exist.' });
+    }
+    clientId = client_id ? Number(client_id) : null;
+  }
+  db.prepare('UPDATE users SET full_name = ?, role = ?, active = ?, client_id = ? WHERE id = ?').run(
     full_name ?? user.full_name,
     role ?? user.role,
     active === undefined ? user.active : active ? 1 : 0,
+    clientId,
     id
   );
   if (password) {
     if (password.length < 8) return res.status(400).json({ error: 'Use a password of at least 8 characters.' });
     db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(bcrypt.hashSync(password, 10), id);
   }
-  audit.log(req, 'user', id, 'update', `Updated user ${user.username}`);
+  audit.log(req, 'user', id, 'update', `Updated user ${user.username}` + (client_id !== undefined ? ` (client assignment ${clientId || 'cleared'})` : ''));
   res.json({ ok: true });
 });
 

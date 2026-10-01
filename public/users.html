@@ -15,7 +15,7 @@
   <main>
     <div class="page-head">
       <div><h1>Users</h1>
-      <p>Administrators configure and finalise. Billing officers compute and generate. Viewers can read only.</p></div>
+      <p>Administrators configure and finalise. Billing officers compute and generate. Viewers are client logins: read-only, and limited to the client assigned to them (issued bills, quotations and live monitor for that client only).</p></div>
     </div>
     <div class="panel"><div class="table-wrap" id="list"></div></div>
     <div class="grid2">
@@ -28,6 +28,7 @@
             <option value="billing_officer">Billing officer</option>
             <option value="admin">Administrator</option>
             <option value="viewer">Viewer</option></select></div>
+          <div class="field" id="u-client-wrap" hidden><label for="u-client">Client (what this viewer can see)</label><select id="u-client"></select></div>
           <div class="field"><label for="u-pass">Temporary password</label><input id="u-pass" type="password" required minlength="8"></div>
           <button class="primary" type="submit">Create user</button>
         </form></div>
@@ -47,16 +48,27 @@
 <script src="/js/app.js"></script>
 <script>
 const ROLES = { admin: 'Administrator', billing_officer: 'Billing officer', viewer: 'Viewer' };
+let CLIENTS = [];
+const clientOptions = (sel) => '<option value="">— No client (sees nothing) —</option>' +
+  CLIENTS.map((c) => `<option value="${c.id}"${String(c.id) === String(sel) ? ' selected' : ''}>${esc(c.name)}</option>`).join('');
 
 async function load() {
   const users = await api('/api/auth/users');
   document.getElementById('list').innerHTML = `<table>
-    <thead><tr><th>Username</th><th>Name</th><th>Role</th><th>Status</th><th></th></tr></thead>
+    <thead><tr><th>Username</th><th>Name</th><th>Role</th><th>Client access</th><th>Status</th><th></th></tr></thead>
     <tbody>${users.map((u) => `<tr><td>${esc(u.username)}</td><td>${esc(u.full_name)}</td>
       <td>${ROLES[u.role] || u.role}</td>
+      <td>${u.role === 'viewer'
+        ? `<select onchange="assign(${u.id}, this.value)">${clientOptions(u.client_id)}</select>`
+        : '<span style="color:var(--ink-soft)">All</span>'}</td>
       <td><span class="pill ${u.active ? 'issued' : 'void'}">${u.active ? 'Active' : 'Deactivated'}</span></td>
       <td class="num"><button class="quiet" onclick="toggle(${u.id}, ${u.active ? 0 : 1})">${u.active ? 'Deactivate' : 'Reactivate'}</button></td>
       </tr>`).join('')}</tbody></table>`;
+}
+
+async function assign(id, client_id) {
+  try { await api('/api/auth/users/' + id, { method: 'PATCH', body: { client_id: client_id ? Number(client_id) : null } }); toast('Client access updated'); await load(); }
+  catch (e) { toast(e.message, true); }
 }
 
 async function toggle(id, active) {
@@ -71,6 +83,7 @@ document.getElementById('uform').onsubmit = async (e) => {
       username: document.getElementById('u-username').value.trim(),
       full_name: document.getElementById('u-name').value.trim(),
       role: document.getElementById('u-role').value,
+      client_id: document.getElementById('u-role').value === 'viewer' ? document.getElementById('u-client').value || null : null,
       password: document.getElementById('u-pass').value
     }});
     e.target.reset(); toast('User created'); await load();
@@ -88,7 +101,16 @@ document.getElementById('pform').onsubmit = async (e) => {
   } catch (err) { toast(err.message, true); }
 };
 
-(async () => { await shell(); await load(); })().catch((e) => toast(e.message, true));
+document.getElementById('u-role').onchange = (e) => {
+  document.getElementById('u-client-wrap').hidden = e.target.value !== 'viewer';
+};
+
+(async () => {
+  await shell();
+  CLIENTS = (await api('/api/clients')).clients;
+  document.getElementById('u-client').innerHTML = clientOptions('');
+  await load();
+})().catch((e) => toast(e.message, true));
 </script>
 </body>
 </html>

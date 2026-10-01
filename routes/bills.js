@@ -1,7 +1,7 @@
 const express = require('express');
 const { v4: uuid } = require('uuid');
 const db = require('../db');
-const { canEdit } = require('../middleware/auth');
+const { canEdit, viewerScope } = require('../middleware/auth');
 const audit = require('../lib/audit');
 const { computeBill, daysBetween, dateRange, ratioFor, round } = require('../lib/billing');
 const dashboard = require('../lib/dashboard');
@@ -116,7 +116,15 @@ function billHistory(bill) {
 // --- List ---
 
 router.get('/', (req, res) => {
-  const { client_id, project_id, status, from, to } = req.query;
+  let { client_id, project_id, status, from, to } = req.query;
+  // A client login sees only its own bills, and only once they have been issued —
+  // drafts, reviews, approved and final bills stay hidden. Enforced here, not in the page.
+  const scope = viewerScope(req);
+  if (scope) {
+    if (!scope.clientId) return res.json({ bills: [], labels: LABELS });
+    client_id = scope.clientId;
+    status = 'issued';
+  }
   let sql = `SELECT b.*, c.name AS client_name, c.account_no, p.name AS project_name
              FROM bills b JOIN clients c ON c.id = b.client_id JOIN projects p ON p.id = b.project_id WHERE 1=1`;
   const args = [];
@@ -182,6 +190,14 @@ router.post('/', canEdit, (req, res) => {
 router.get('/:id', (req, res) => {
   const bill = fullBill(req.params.id);
   if (!bill) return res.status(404).json({ error: 'Bill not found.' });
+  const scope = viewerScope(req);
+  if (scope) {
+    // Same 404 as a missing bill, so a viewer can't tell a hidden bill from a nonexistent one.
+    if (!scope.clientId || bill.client_id !== scope.clientId || bill.status !== 'issued') {
+      return res.status(404).json({ error: 'Bill not found.' });
+    }
+    bill.trail = []; // internal activity log is for staff
+  }
   bill.suggested_previous_balance = outstandingBefore(bill.client_id, bill.period_start, bill.id);
   bill.suggested_interest = suggestedInterest(
     bill.client_id, bill.period_start, bill.bill_date, bill.contract_id, bill.id

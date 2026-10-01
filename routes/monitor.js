@@ -10,6 +10,8 @@
     live  the M-Carbon Dashboard, through lib/monitor/live.js
 */
 const express = require('express');
+const db = require('../db');
+const { viewerScope } = require('../middleware/auth');
 
 const MODE = process.env.MONITOR_MODE === 'live' ? 'live' : 'mock';
 const RATE = Number(process.env.RATE_PHP_PER_KWH) || 11.5; // PHP per kWh, for the cost estimate
@@ -28,11 +30,34 @@ const wrap = (fn) => (req, res) =>
 const round = (n, d = 1) => Number(Number(n).toFixed(d));
 const sum = (rows) => rows.reduce((s, p) => s + p.kwh, 0);
 
+/* A client login (viewer) only sees the dashboard sites linked to its own client's projects
+   (projects.family_id). Anything else answers 404, whatever the page asks for. */
+router.use((req, res, next) => {
+  const scope = viewerScope(req);
+  if (!scope) return next();
+  req.allowedSites = new Set(scope.clientId
+    ? db.prepare('SELECT family_id FROM projects WHERE client_id = ? AND family_id IS NOT NULL').all(scope.clientId)
+        .map((r) => String(r.family_id))
+    : []);
+  next();
+});
+router.param('id', (req, res, next, id) => {
+  if (req.allowedSites && !req.allowedSites.has(String(id))) return res.status(404).json({ error: 'Site not found.' });
+  next();
+});
+
 router.get('/config', (req, res) => res.json({ mode: MODE, rate: RATE, pollMs: POLL_MS }));
 
-router.get('/projects', wrap(async (req, res) => res.json(await provider.listProjects())));
+router.get('/projects', wrap(async (req, res) => {
+  const list = await provider.listProjects();
+  res.json(req.allowedSites ? list.filter((p) => req.allowedSites.has(String(p.id))) : list);
+}));
 
-router.get('/overview', wrap(async (req, res) => res.json(await provider.overview())));
+// The national overview mixes every client's sites, so it is staff-only.
+router.get('/overview', wrap(async (req, res) => {
+  if (req.allowedSites) return res.status(403).json({ error: 'Your role does not allow this.' });
+  res.json(await provider.overview());
+}));
 
 router.get('/projects/:id/meters', wrap(async (req, res) => res.json(await provider.listMeters(req.params.id))));
 

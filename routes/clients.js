@@ -2,7 +2,7 @@ const express = require('express');
 const db = require('../db');
 // Clients and projects are set up by administrators only. Billing officers
 // can view them (and bill against them) but cannot create, edit or delete.
-const { requireRole } = require('../middleware/auth');
+const { requireRole, viewerScope, notViewer } = require('../middleware/auth');
 const canEdit = requireRole('admin');
 const audit = require('../lib/audit');
 
@@ -26,13 +26,15 @@ router.get('/', (req, res) => {
       (SELECT COUNT(*) FROM bills b WHERE b.client_id = c.id) AS bill_count
     FROM clients c WHERE 1=1`;
   const args = [];
+  const scope = viewerScope(req);
+  if (scope) { sql += ' AND c.id = ?'; args.push(scope.clientId || 0); }
   if (q) { sql += ' AND (c.name LIKE ? OR c.account_no LIKE ?)'; args.push(`%${q}%`, `%${q}%`); }
   if (status) { sql += ' AND c.status = ?'; args.push(status); }
   sql += ' ORDER BY c.name';
   res.json({ statuses: STATUSES, clients: db.prepare(sql).all(...args) });
 });
 
-router.get('/:id', (req, res) => {
+router.get('/:id', notViewer, (req, res) => {
   const client = db.prepare('SELECT * FROM clients WHERE id = ?').get(req.params.id);
   if (!client) return res.status(404).json({ error: 'Client not found.' });
   client.contacts = db.prepare('SELECT * FROM contacts WHERE client_id = ? ORDER BY is_primary DESC, name').all(client.id);

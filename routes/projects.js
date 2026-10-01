@@ -2,7 +2,7 @@ const express = require('express');
 const db = require('../db');
 // Clients and projects are set up by administrators only. Billing officers
 // can view them (and bill against them) but cannot create, edit or delete.
-const { requireRole } = require('../middleware/auth');
+const { requireRole, viewerScope, notViewer } = require('../middleware/auth');
 const canEdit = requireRole('admin');
 const audit = require('../lib/audit');
 const dashboard = require('../lib/dashboard');
@@ -35,9 +35,11 @@ function loadProject(id) {
 }
 
 router.get('/', (req, res) => {
+  const scope = viewerScope(req);
   const rows = db.prepare(`
     SELECT p.*, c.name AS client_name, c.account_no
     FROM projects p JOIN clients c ON c.id = p.client_id
+    ${scope ? 'WHERE p.client_id = ' + Number(scope.clientId || 0) : ''}
     ORDER BY c.name, p.name`).all();
   res.json({ lighting_types: LIGHTING_TYPES, projects: rows });
 });
@@ -55,7 +57,7 @@ router.get('/dashboard/list', canEdit, async (req, res) => {
   }
 });
 
-router.get('/:id', (req, res) => {
+router.get('/:id', notViewer, (req, res) => {
   const p = loadProject(req.params.id);
   if (!p) return res.status(404).json({ error: 'Project not found.' });
   res.json(p);

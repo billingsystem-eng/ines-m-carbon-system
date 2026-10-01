@@ -1,6 +1,6 @@
 const express = require('express');
 const db = require('../db');
-const { canEdit, requireRole } = require('../middleware/auth');
+const { canEdit, requireRole, viewerScope } = require('../middleware/auth');
 const audit = require('../lib/audit');
 
 const router = express.Router();
@@ -79,16 +79,26 @@ router.get('/', (req, res) => {
   let sql = `SELECT q.*, COALESCE((SELECT SUM(quantity * unit_price) FROM quotation_items WHERE quotation_id = q.id), 0) AS sub
              FROM quotations q WHERE 1=1`;
   const args = [];
+  // A client login sees only quotations linked to its own client, and not drafts.
+  const scope = viewerScope(req);
+  if (scope) {
+    if (!scope.clientId) return res.json({ statuses: STATUSES.filter((s) => s !== 'draft'), quotations: [] });
+    sql += " AND q.client_id = ? AND q.status != 'draft'"; args.push(scope.clientId);
+  }
   if (q) { sql += ' AND (q.quote_no LIKE ? OR q.customer_name LIKE ? OR q.client_ref_id LIKE ?)'; args.push(`%${q}%`, `%${q}%`, `%${q}%`); }
   if (status) { sql += ' AND q.status = ?'; args.push(status); }
   sql += ' ORDER BY q.quote_date DESC, q.id DESC';
   const rows = db.prepare(sql).all(...args).map(({ sub, ...r }) => ({ ...r, ...totals(sub, r.vat_rate) }));
-  res.json({ statuses: STATUSES, quotations: rows });
+  res.json({ statuses: scope ? STATUSES.filter((s) => s !== 'draft') : STATUSES, quotations: rows });
 });
 
 router.get('/:id', (req, res) => {
   const q = load(Number(req.params.id));
   if (!q) return res.status(404).json({ error: 'Quotation not found.' });
+  const scope = viewerScope(req);
+  if (scope && (!scope.clientId || q.client_id !== scope.clientId || q.status === 'draft')) {
+    return res.status(404).json({ error: 'Quotation not found.' });
+  }
   res.json(q);
 });
 
