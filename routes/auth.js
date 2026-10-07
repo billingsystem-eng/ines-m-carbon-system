@@ -66,7 +66,7 @@ router.post('/users', requireRole('admin'), (req, res) => {
     return res.status(400).json({ error: 'Username, full name and password are required.' });
   }
   if (password.length < 8) return res.status(400).json({ error: 'Use a password of at least 8 characters.' });
-  if (!['admin', 'billing_officer', 'viewer'].includes(role)) {
+  if (!['admin', 'billing_officer', 'finance_hr', 'viewer'].includes(role)) {
     return res.status(400).json({ error: 'Pick a valid role.' });
   }
   let clientId = null;
@@ -102,6 +102,9 @@ router.patch('/users/:id', requireRole('admin'), (req, res) => {
     }
     clientId = client_id ? Number(client_id) : null;
   }
+  if (role !== undefined && !['admin', 'billing_officer', 'finance_hr', 'viewer'].includes(role)) {
+    return res.status(400).json({ error: 'Pick a valid role.' });
+  }
   db.prepare('UPDATE users SET full_name = ?, role = ?, active = ?, client_id = ? WHERE id = ?').run(
     full_name ?? user.full_name,
     role ?? user.role,
@@ -114,6 +117,24 @@ router.patch('/users/:id', requireRole('admin'), (req, res) => {
     db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(bcrypt.hashSync(password, 10), id);
   }
   audit.log(req, 'user', id, 'update', `Updated user ${user.username}` + (client_id !== undefined ? ` (client assignment ${clientId || 'cleared'})` : ''));
+  res.json({ ok: true });
+});
+
+router.delete('/users/:id', requireRole('admin'), (req, res) => {
+  const id = Number(req.params.id);
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+  if (!user) return res.status(404).json({ error: 'User not found.' });
+  if (id === req.session.userId) return res.status(400).json({ error: 'You cannot delete your own account.' });
+  if (user.role === 'admin' && user.active &&
+      db.prepare("SELECT COUNT(*) c FROM users WHERE role = 'admin' AND active = 1 AND id != ?").get(id).c === 0) {
+    return res.status(400).json({ error: 'You cannot delete the last active administrator.' });
+  }
+  try {
+    db.prepare('DELETE FROM users WHERE id = ?').run(id);
+  } catch (e) {
+    return res.status(400).json({ error: 'This user can’t be deleted because other records depend on it. Deactivate the account instead.' });
+  }
+  audit.log(req, 'user', id, 'delete', `Deleted user ${user.username} (${user.role})`);
   res.json({ ok: true });
 });
 

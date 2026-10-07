@@ -28,8 +28,8 @@
 <script src="/js/app.js"></script>
 <script>
 const g = (id) => document.getElementById(id);
-const PILL = { draft: 'draft', sent: 'for_review', accepted: 'issued', declined: 'void' };
-const LABEL = { draft: 'Draft', sent: 'Sent', accepted: 'Accepted', declined: 'Declined' };
+const PILL = { draft: 'draft', sent: 'for_review', accepted: 'approved', paid: 'issued', declined: 'void' };
+const LABEL = { draft: 'Draft', sent: 'Sent', accepted: 'Accepted', paid: 'Paid', declined: 'Declined' };
 let me;
 async function load() {
   const p = new URLSearchParams({ q: g('q').value, status: g('status').value });

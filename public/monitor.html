@@ -482,7 +482,7 @@ function renderOverview(o) {
   ppChart.update();
 
   const c = o.categories, total = c.lighting + c.ac + c.other || 1;
-  $('#cats').innerHTML = [['Lighting', c.lighting], ['Air conditioning', c.ac], ['Everything else', c.other]].map(([name, v]) =>
+  $('#cats').innerHTML = [['Lighting', c.lighting] /* Air conditioning (c.ac) and Everything else (c.other) hidden for now: lighting-only offering */].map(([name, v]) =>
     `<div class="cat"><span class="name">${name}</span><span class="share"><span><i style="width:${(v / total * 100).toFixed(1)}%"></i></span></span><span class="amt">${nf(v)} <small>kWh</small></span></div>`).join('');
 
   drawMap(o);

@@ -68,7 +68,7 @@ const NAV = [
 ];
 
 /** Pages a viewer (client login) may open, all read-only: billing, quotations, live monitor, payment methods. */
-const VIEWER_PAGES = ['/bills.html', '/bill.html', '/statement.html', '/payment-methods.html',
+const VIEWER_PAGES = ['/bills.html', '/bill.html', '/statement.html', '/invoice.html', '/payment-methods.html',
   '/quotations.html', '/quotation-print.html', '/monitor.html'];
 
 /** Renders the left rail and returns the signed-in user. */
@@ -81,7 +81,7 @@ async function shell() {
   const rail = document.querySelector('.rail');
   if (!rail) return me;
   const here = location.pathname;
-  const roleText = { admin: 'Administrator', billing_officer: 'Billing officer', viewer: 'Viewer' }[me.role] || me.role;
+  const roleText = { admin: 'Administrator', billing_officer: 'Billing officer', finance_hr: 'Finance / HR', viewer: 'Viewer' }[me.role] || me.role;
   rail.innerHTML = `
     <div class="mark"><b>M-Carbon System</b><span>INES Solutions</span></div>
     <nav>${NAV.filter((n) => (!n.adminOnly || me.role === 'admin') && (me.role !== 'viewer' || VIEWER_PAGES.includes(n.href)))
@@ -132,7 +132,7 @@ function openPasswordDialog() {
 }
 
 /** Viewers can read everything but change nothing. */
-const readOnly = (me) => me.role === 'viewer';
+const readOnly = (me) => me.role === 'viewer' || me.role === 'finance_hr'; // finance / HR can approve and view, not edit
 /* Clients & projects can only be changed by administrators. */
 const readOnlySetup = (me) => me.role !== 'admin';
 
@@ -141,4 +141,47 @@ function disableEditing() {
     el.disabled = true;
     el.title = 'Your role is read-only.';
   });
+}
+
+/* Sales Invoice scans. Fills #invoice-body inside #invoice-panel for a bill or a quotation.
+   Staff only (the panel stays hidden for client logins). Upload opens only once it has been paid. */
+async function renderInvoicePanel(entity, id, me) {
+  const panel = document.getElementById('invoice-panel'), body = document.getElementById('invoice-body');
+  if (!panel || !body || me.role === 'viewer') return;
+  let d;
+  try { d = await api(`/api/invoices/${entity}/${id}`); } catch (e) { return; }
+  panel.hidden = false;
+  const kb = (n) => (n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB');
+  const files = d.files.map((f) => `<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:6px 0;border-bottom:1px solid var(--rule)">
+      <a href="/api/invoices/file/${f.id}" target="_blank" rel="noopener">${esc(f.original_name)}</a>
+      <small style="color:var(--ink-soft)">${kb(f.size)} · ${esc(f.uploaded_by || '')} · ${esc(f.uploaded_at)}</small>
+      ${me.role === 'admin' ? `<button type="button" class="quiet danger" data-rm="${f.id}">Remove</button>` : ''}</div>`).join('')
+    || '<div class="empty" style="padding:12px 0;text-align:left">No Sales Invoice attached yet.</div>';
+  const up = d.can_upload
+    ? `<div class="no-print" style="margin-top:12px"><input id="inv-file" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" hidden>
+        <button type="button" id="inv-btn">Upload scanned Sales Invoice</button> <small style="color:var(--ink-soft)">PDF, JPG or PNG, up to 15 MB</small></div>`
+    : (!d.eligible ? `<p style="margin:12px 0 0;color:var(--ink-soft);font-size:.88rem">${esc(d.reason)}</p>` : '');
+  body.innerHTML = files + up;
+  body.querySelectorAll('[data-rm]').forEach((b) => (b.onclick = async () => {
+    if (!confirm('Remove this Sales Invoice scan?')) return;
+    try { await api('/api/invoices/file/' + b.dataset.rm, { method: 'DELETE' }); toast('File removed'); renderInvoicePanel(entity, id, me); } catch (e) { toast(e.message, true); }
+  }));
+  const input = body.querySelector('#inv-file'), btn = body.querySelector('#inv-btn');
+  if (btn) {
+    btn.onclick = () => input.click();
+    input.onchange = async () => {
+      const f = input.files[0]; if (!f) return;
+      const ext = (f.name.split('.').pop() || '').toLowerCase();
+      const type = f.type || { pdf: 'application/pdf', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png' }[ext] || '';
+      if (f.size > 15 * 1024 * 1024) return toast('That file is over 15 MB.', true);
+      btn.disabled = true;
+      try {
+        const res = await fetch(`/api/invoices/${entity}/${id}`, { method: 'POST', headers: { 'Content-Type': type, 'X-Filename': encodeURIComponent(f.name) }, body: f });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'The upload failed. Try again.');
+        toast('Sales Invoice uploaded');
+        renderInvoicePanel(entity, id, me);
+      } catch (e) { toast(e.message, true); btn.disabled = false; }
+    };
+  }
 }

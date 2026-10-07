@@ -21,6 +21,7 @@
   .qt .meta td { border: 1px solid #c9cde0; padding: 3px 6px; } .qt .meta td:first-child { border-right: 0; white-space: nowrap; }
   .qt .meta td:last-child { border-left: 0; font-size: 10.5px; }
   .qt .to { width: 215px; margin-top: 16px; } .qt .custname { padding: 3px 6px; border-bottom: 1px solid #c9cde0; margin-bottom: 14px; }
+  .qt .custname .site { margin-top: 3px; font-size: 11px; }
   .qt .items th { background: var(--navy); color: #fff; text-align: center; border: 1px solid var(--navy); }
   .qt .items td { border-left: 1px solid #c9cde0; border-right: 1px solid #c9cde0; }
   .qt .items tr.fill td { height: 22px; } .qt .items tr.fill:nth-child(even) td { background: #f1f1f1; }
@@ -82,8 +83,8 @@ function inWords(amount) {
   if (readOnly(me)) document.getElementById('edit').hidden = true;
   const fills = Math.max(0, 8 - q.items.length - 1);
   const rows = q.items.map((i, n) => `<tr><td class="c">${n + 1}</td><td class="desc">${esc(i.description)}</td>
-      <td class="c">${Number(i.quantity)}</td><td class="c">${esc(i.unit)}</td><td class="r">${P(i.unit_price)}</td><td class="r">${P(i.line_total)}</td></tr>`).join('');
-  const blanks = '<tr class="fill"><td></td><td></td><td></td><td></td><td></td><td></td></tr>'.repeat(fills);
+      <td class="c">${esc(i.unit)}</td><td class="c">${Number(i.quantity)}</td><td class="r">${P(i.unit_material)}</td><td class="r">${P(i.unit_labor)}</td><td class="r">${P(i.line_total)}</td></tr>`).join('');
+  const blanks = '<tr class="fill"><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>'.repeat(fills);
   const contact = q.contact_name || q.contact_phone || q.contact_email
     ? `If you have any questions about this quote, please contact ${esc(q.contact_name)}${q.contact_phone ? ' at ' + esc(q.contact_phone) : ''}${q.contact_email ? ' or ' + esc(q.contact_email) : ''}. Thank you!`
     : 'Thank you for your business!';
@@ -99,10 +100,10 @@ function inWords(amount) {
         <tr><td>Quotation No.:</td><td>${esc(q.quote_no)}</td></tr><tr><td>Date:</td><td>${mdy(q.quote_date)}</td></tr>
         <tr><td>Valid Until:</td><td>${mdy(q.valid_until)}</td></tr><tr><td>Client Ref. ID:</td><td>${esc(q.client_ref_id)}</td></tr></table></div>
     </div>
-    <div class="to"><div class="bar">QUOTE TO</div></div><div class="custname">${esc(q.customer_name)}</div>
-    <table class="items"><thead><tr><th style="width:52px">Item #</th><th>Description</th><th style="width:70px">Quantity</th>
-      <th style="width:60px">Unit</th><th style="width:84px">Unit Price</th><th style="width:92px">Total</th></tr></thead>
-      <tbody>${rows}<tr class="nf"><td colspan="6">--- nothing follows ---</td></tr>${blanks}</tbody></table>
+    <div class="to"><div class="bar">QUOTE TO</div></div><div class="custname">${esc(q.customer_name)}${q.project_site ? `<div class="site">Project Site: ${esc(q.project_site)}</div>` : ''}</div>
+    <table class="items"><thead><tr><th style="width:44px">Item #</th><th>Description</th><th style="width:54px">Unit</th><th style="width:60px">Quantity</th>
+      <th style="width:78px">Unit - Material Cost</th><th style="width:78px">Unit - Labor Cost</th><th style="width:86px">Total</th></tr></thead>
+      <tbody>${rows}<tr class="nf"><td colspan="7">--- nothing follows ---</td></tr>${blanks}</tbody></table>
     <div class="low">
       <div class="terms"><b>Terms and Conditions:</b>${esc(q.terms)}</div>
       <div class="sum"><table>

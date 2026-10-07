@@ -1,7 +1,9 @@
 const express = require('express');
 const { v4: uuid } = require('uuid');
 const db = require('../db');
-const { canEdit, viewerScope } = require('../middleware/auth');
+const { canEdit, requireRole, viewerScope } = require('../middleware/auth');
+const { balanceDue, fullyPaid, invoiceReady } = require('../lib/invoice-ready');
+const onlinePayments = require('./online-payments');
 const audit = require('../lib/audit');
 const { computeBill, daysBetween, dateRange, ratioFor, round } = require('../lib/billing');
 const dashboard = require('../lib/dashboard');
@@ -9,10 +11,24 @@ const dashboard = require('../lib/dashboard');
 const router = express.Router();
 
 const EDITABLE = ['draft', 'for_review'];
-const FLOW = { draft: 'for_review', for_review: 'approved', approved: 'final', final: 'issued' };
+// 'approved' is no longer reached by new bills (the administrator approval step was removed); it stays so older bills can finish.
+const FLOW = { draft: 'for_review', for_review: 'final', approved: 'final', final: 'issued' };
 const LABELS = {
-  draft: 'Draft', for_review: 'For review', approved: 'Approved',
+  draft: 'Draft', for_review: 'For review', approved: 'Admin approved',
   final: 'Final / locked', issued: 'Issued', void: 'Void'
+};
+// Who may perform each step of the flow (the key is the status the bill moves INTO).
+//   for_review : billing officer or admin sends the draft for review
+//   final      : finance / HR approval (locks the bill)
+//   issued     : billing officer or admin releases it to the client
+const STEP_ROLES = {
+  for_review: ['admin', 'billing_officer'],
+  final: ['finance_hr'],
+  issued: ['admin', 'billing_officer', 'finance_hr']
+};
+const STEP_ROLE_TEXT = {
+  for_review: 'a billing officer or administrator',
+  final: 'finance / HR (approval)', issued: 'a billing officer, administrator or finance / HR'
 };
 
 function billContext(bill) {
@@ -198,6 +214,10 @@ router.get('/:id', (req, res) => {
     }
     bill.trail = []; // internal activity log is for staff
   }
+  bill.fully_paid = fullyPaid(bill.id);
+  bill.balance_due = balanceDue(bill.id);
+  bill.online_pay_enabled = onlinePayments.enabled();
+  bill.invoice_ready = invoiceReady(bill.id);
   bill.suggested_previous_balance = outstandingBefore(bill.client_id, bill.period_start, bill.id);
   bill.suggested_interest = suggestedInterest(
     bill.client_id, bill.period_start, bill.bill_date, bill.contract_id, bill.id
@@ -308,7 +328,7 @@ router.put('/:id', canEdit, (req, res) => {
 
 // --- Status flow: draft -> for review -> approved -> final -> issued ---
 
-router.post('/:id/status', canEdit, (req, res) => {
+router.post('/:id/status', requireRole('admin', 'billing_officer', 'finance_hr'), (req, res) => {
   const bill = db.prepare('SELECT * FROM bills WHERE id = ?').get(req.params.id);
   if (!bill) return res.status(404).json({ error: 'Bill not found.' });
   const target = req.body?.status;
@@ -326,26 +346,37 @@ router.post('/:id/status', canEdit, (req, res) => {
     return res.json({ ok: true, status: 'void' });
   }
 
+  // Send back: an approver can return a bill to draft (with a reason) instead of approving it.
+  if (target === 'draft') {
+    const allowed = ['for_review', 'approved'].includes(bill.status) ? ['admin', 'finance_hr'] : [];
+    if (!allowed.length) return res.status(400).json({ error: 'Only a bill that is waiting for approval can be returned to draft.' });
+    if (!allowed.includes(req.session.role)) return res.status(403).json({ error: 'Your role cannot return this bill to draft.' });
+    const reason = (req.body?.reason || '').trim();
+    if (!reason) return res.status(400).json({ error: 'Give a reason for returning this bill to draft.' });
+    db.prepare('UPDATE bills SET status = ?, admin_approved_by = NULL, admin_approved_at = NULL, finance_approved_by = NULL, finance_approved_at = NULL WHERE id = ?').run('draft', bill.id);
+    audit.log(req, 'bill', bill.id, 'status', `${LABELS[bill.status]} → Draft (returned): ${reason}`);
+    return res.json({ ok: true, status: 'draft', status_label: LABELS.draft });
+  }
+
   const next = FLOW[bill.status];
   if (!next) return res.status(400).json({ error: `A ${LABELS[bill.status].toLowerCase()} bill has no next step.` });
   if (target && target !== next) {
     return res.status(400).json({ error: `The next step for this bill is “${LABELS[next]}”.` });
   }
-  if (next === 'approved' && !['admin', 'billing_officer'].includes(req.session.role)) {
-    return res.status(403).json({ error: 'Your role cannot approve billing.' });
+  if (!STEP_ROLES[next].includes(req.session.role)) {
+    return res.status(403).json({ error: `The next step for this bill must be done by ${STEP_ROLE_TEXT[next]}.` });
   }
-  if (next === 'final' && req.session.role !== 'admin') {
-    return res.status(403).json({ error: 'Only an administrator can mark a bill as final.' });
-  }
-  if (next === 'approved' && bill.amount_billed === 0 && bill.gross_savings === 0) {
+  if (next === 'final' && bill.amount_billed === 0 && bill.gross_savings === 0) {
     return res.status(400).json({ error: 'Run the computation before approving this bill.' });
   }
 
+  const who = req.session.username;
   const stamps = {
-    final: 'UPDATE bills SET status = ?, finalized_at = datetime(\'now\') WHERE id = ?',
+    final: 'UPDATE bills SET status = ?, finance_approved_by = ?, finance_approved_at = datetime(\'now\'), finalized_at = datetime(\'now\') WHERE id = ?',
     issued: 'UPDATE bills SET status = ?, issued_at = datetime(\'now\') WHERE id = ?'
   };
-  db.prepare(stamps[next] || 'UPDATE bills SET status = ? WHERE id = ?').run(next, bill.id);
+  const stmt = db.prepare(stamps[next] || 'UPDATE bills SET status = ? WHERE id = ?');
+  if (next === 'final') stmt.run(next, who, bill.id); else stmt.run(next, bill.id);
 
   if (next === 'issued') {
     db.prepare('UPDATE clients SET status = ? WHERE id = ?').run('Billed', bill.client_id);
@@ -434,6 +465,27 @@ router.post('/:id/payments', canEdit, (req, res) => {
   }
   audit.log(req, 'bill', bill.id, 'payment', `Recorded payment of ${amount} on ${paid_on}`);
   res.json({ ok: true, total_due: due });
+});
+
+// Finance (or an admin) confirms the money was actually received. Until then clients can't see the Sales Invoice.
+router.post('/:id/confirm-payment', requireRole('admin', 'finance_hr'), (req, res) => {
+  const bill = db.prepare('SELECT * FROM bills WHERE id = ?').get(req.params.id);
+  if (!bill) return res.status(404).json({ error: 'Bill not found.' });
+  if (!fullyPaid(bill.id)) {
+    return res.status(400).json({ error: 'Record the full payment on this issued bill before confirming it.' });
+  }
+  db.prepare("UPDATE bills SET payment_confirmed_by = ?, payment_confirmed_at = datetime('now') WHERE id = ?")
+    .run(req.session.username, bill.id);
+  audit.log(req, 'bill', bill.id, 'payment-confirm', `Payment confirmed as received for ${bill.statement_no}`);
+  res.json({ ok: true });
+});
+
+router.post('/:id/unconfirm-payment', requireRole('admin', 'finance_hr'), (req, res) => {
+  const bill = db.prepare('SELECT * FROM bills WHERE id = ?').get(req.params.id);
+  if (!bill) return res.status(404).json({ error: 'Bill not found.' });
+  db.prepare('UPDATE bills SET payment_confirmed_by = NULL, payment_confirmed_at = NULL WHERE id = ?').run(bill.id);
+  audit.log(req, 'bill', bill.id, 'payment-unconfirm', `Payment confirmation withdrawn for ${bill.statement_no}`);
+  res.json({ ok: true });
 });
 
 router.post('/:id/adjustments', canEdit, (req, res) => {

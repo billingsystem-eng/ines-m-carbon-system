@@ -4,7 +4,8 @@ const express = require('express');
 const session = require('express-session');
 const path = require('path');
 
-const { requireAuth } = require('./middleware/auth');
+const { requireAuth, viewerScope } = require('./middleware/auth');
+const { invoiceReady } = require('./lib/invoice-ready');
 const authRouter = require('./routes/auth');
 const clientsRouter = require('./routes/clients');
 const projectsRouter = require('./routes/projects');
@@ -14,14 +15,20 @@ const monitorRouter = require('./routes/monitor');
 const paymentMethodsRouter = require('./routes/payment-methods');
 const psgcRouter = require('./routes/psgc');
 const quotationsRouter = require('./routes/quotations');
+const invoicesRouter = require('./routes/invoices');
+const onlinePayments = require('./routes/online-payments');
 
-require('./db'); // opens the database and creates tables on first run
+const db = require('./db'); // opens the database and creates tables on first run
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const PROD = process.env.NODE_ENV === 'production';
 
 app.set('trust proxy', 1);
+// PayMongo webhook: needs the RAW body (for the signature check), so it is mounted before express.json.
+// No session here - PayMongo calls it directly; the signature is what authenticates it.
+app.post('/api/online-payments/webhook', express.raw({ type: () => true, limit: '1mb' }), onlinePayments.webhook);
+
 app.use(express.json({ limit: '2mb' }));
 
 app.use(session({
@@ -46,12 +53,21 @@ app.get('/', (req, res) => {
 });
 
 // Viewers (client logins) get their issued bills, quotations, live monitor and payment methods — read-only.
-const VIEWER_PAGES = new Set(['/bills.html', '/bill.html', '/statement.html', '/payment-methods.html',
+const VIEWER_PAGES = new Set(['/bills.html', '/bill.html', '/statement.html', '/invoice.html', '/payment-methods.html',
   '/quotations.html', '/quotation-print.html', '/monitor.html']);
 app.get(/\.html$/, (req, res, next) => {
   if (req.session?.userId && req.session.role === 'viewer' &&
       req.path !== '/login.html' && !VIEWER_PAGES.has(req.path)) {
     return res.redirect('/bills.html');
+  }
+  // Clients only get the Sales Invoice once that bill is fully paid.
+  if (req.path === '/invoice.html' && req.session?.userId && req.session.role === 'viewer') {
+    const billId = Number(req.query.id);
+    const scope = viewerScope(req);
+    const bill = billId && db.prepare('SELECT client_id FROM bills WHERE id = ?').get(billId);
+    if (!bill || !scope || !scope.clientId || bill.client_id !== scope.clientId || !invoiceReady(billId)) {
+      return res.redirect(billId ? '/bill.html?id=' + billId : '/bills.html');
+    }
   }
   next();
 });
@@ -65,6 +81,8 @@ app.use('/api/monitor', requireAuth, monitorRouter); // live M-Carbon monitor (m
 app.use('/api/payment-methods', requireAuth, paymentMethodsRouter);
 app.use('/api/psgc', requireAuth, psgcRouter);
 app.use('/api/quotations', requireAuth, quotationsRouter);
+app.use('/api/invoices', requireAuth, invoicesRouter);
+app.use('/api/online-payments', requireAuth, onlinePayments.router);   // PayMongo checkout   // scanned Sales Invoice copies
 
 app.use(express.static(path.join(__dirname, 'public')));
 

@@ -131,6 +131,7 @@
           <div class="panel">
             <header><h2>Payments</h2></header>
             <div id="payments"></div>
+            <div class="body no-print" id="pay-confirm"></div>
             <div class="body no-print">
               <form id="pay-form" class="inline-form">
                 <div><label for="pay-date">Date</label><input id="pay-date" type="date" required data-edit></div>
@@ -152,6 +153,16 @@
               </form>
             </div>
           </div>
+        </div>
+
+        <div class="panel" id="approvals-panel">
+          <header><h2>Approvals before issue</h2></header>
+          <div class="body" id="approvals-body"></div>
+        </div>
+
+        <div class="panel" id="invoice-panel" hidden>
+          <header><h2>Sales invoice (scanned copy)</h2></header>
+          <div class="body" id="invoice-body"></div>
         </div>
 
         <div class="panel">
@@ -330,21 +341,65 @@ function renderTape(r) {
     <div class="headline"><div class="line"><span>Total amount due</span><span>${money(r.total_due)}</span></div></div>`;
 }
 
+// Flow: Draft -> For review -> Finance / HR approval (Final, locked) -> Issued to client
+const STEP = {
+  draft:      { label: 'Send for review',                 roles: ['admin', 'billing_officer'], who: 'a billing officer or administrator' },
+  for_review: { label: 'Approve (Finance / HR)',          roles: ['finance_hr'],               who: 'finance / HR' },
+  approved:   { label: 'Approve (Finance / HR)',          roles: ['finance_hr'],               who: 'finance / HR' },
+  final:      { label: 'Issue to client',                 roles: ['admin', 'billing_officer', 'finance_hr'], who: 'a billing officer, administrator or finance / HR' }
+};
+const RETURN_ROLES = { for_review: ['admin', 'finance_hr'], approved: ['admin', 'finance_hr'] };
+
 function renderActions() {
-  const next = { draft: 'Send for review', for_review: 'Approve', approved: 'Mark as final', final: 'Issue to client' }[bill.status];
+  const step = STEP[bill.status];
+  const mine = step && step.roles.includes(me.role);
   const canVoid = me.role === 'admin' && ['draft', 'for_review', 'approved'].includes(bill.status);
+  const canReturn = (RETURN_ROLES[bill.status] || []).includes(me.role);
   const parts = [];
   if (bill.editable && !readOnly(me)) parts.push('<button class="primary" id="save">Save and compute</button>');
-  if (next && !readOnly(me)) parts.push(`<button id="advance">${next}</button>`);
+  if (mine) parts.push(`<button id="advance">${step.label}</button>`);
+  if (canReturn) parts.push('<button id="send-back">Return to draft</button>');
   if (['final', 'issued'].includes(bill.status) && !readOnly(me)) parts.push('<button id="revise">Create revision</button>');
   parts.push(`<a class="btn" href="/statement.html?id=${bill.id}">View statement</a>`);
+  if (me.role === 'viewer' && bill.status === 'issued' && bill.online_pay_enabled && bill.balance_due > 0) {
+    parts.push(`<button class="primary" id="pay-online">Pay ${money(bill.balance_due)} online</button>`);
+  }
+  if (me.role !== 'viewer' || bill.invoice_ready) parts.push(`<a class="btn" href="/invoice.html?id=${bill.id}">View sales invoice</a>`);
   if (canVoid) parts.push('<button class="danger" id="void">Void this bill</button>');
   g('actions').innerHTML = parts.join('');
 
   if (g('save')) g('save').onclick = save;
   if (g('advance')) g('advance').onclick = advance;
+  if (g('send-back')) g('send-back').onclick = sendBack;
   if (g('revise')) g('revise').onclick = revise;
   if (g('void')) g('void').onclick = voidBill;
+  if (g('pay-online')) g('pay-online').onclick = payOnline;
+}
+
+function renderApprovals() {
+  const done = (by, at) => by ? `<b>${esc(by)}</b> · ${esc(at || '')}` : '';
+  const st = bill.status;
+  const rows = [
+    ['Prepared and sent for review', 'Billing officer / Administrator', st !== 'draft' && st !== 'void', ''],
+    ['Approval', 'Finance / HR', !!bill.finance_approved_by, done(bill.finance_approved_by, bill.finance_approved_at)],
+    ['Issued to client', 'Billing officer / Administrator / Finance / HR', st === 'issued', bill.issued_at ? esc(bill.issued_at) : '']
+  ];
+  const waiting = STEP[st] ? `Waiting for ${STEP[st].who}.` : '';
+  g('approvals-body').innerHTML = `<table><tbody>${rows.map(([name, role, ok, info]) => `<tr>
+      <td style="width:26px">${ok ? '✓' : '○'}</td><td><b>${name}</b><br><span style="font-size:.82rem;color:var(--ink-soft)">${role}</span></td>
+      <td style="text-align:right">${info || (ok ? '' : '<span style="color:var(--ink-soft)">Pending</span>')}</td></tr>`).join('')}</tbody></table>
+    ${st === 'void' ? '' : `<p style="margin:10px 0 0;color:var(--ink-soft);font-size:.86rem">Finance / HR approval is needed before a bill can be issued to the client. ${waiting}</p>`}`;
+}
+
+async function sendBack() {
+  const reason = prompt('Why is this bill being returned to draft? It will need to be approved again.');
+  if (reason === null) return;
+  if (!reason.trim()) return toast('A reason is required.', true);
+  try {
+    await api(`/api/bills/${id}/status`, { method: 'POST', body: { status: 'draft', reason: reason.trim() } });
+    toast('Returned to draft');
+    await load();
+  } catch (e) { toast(e.message, true); }
 }
 
 async function voidBill() {
@@ -488,6 +543,9 @@ async function load() {
         <td class="num">${money(p.amount)}</td></tr>`).join('')}</tbody></table></div>`
     : '<div class="empty">No payments recorded.</div>';
 
+  renderPayConfirm();
+  watchReturnFromPayment();
+
   g('adjustments').innerHTML = bill.adjustments.length ? `<div class="table-wrap"><table>
       <tbody>${bill.adjustments.map((a) => `<tr><td>${dateText(a.adjusted_on)}<br><span style="font-size:.82rem;color:var(--ink-soft)">${esc(a.reason)}</span></td>
         <td class="num">${money(a.amount)}</td></tr>`).join('')}</tbody></table></div>`
@@ -501,6 +559,8 @@ async function load() {
         <td>${esc(t.action)}</td><td>${esc(t.detail || '')}</td></tr>`).join('')}</tbody></table>`
     : '<div class="empty">No changes recorded yet.</div>';
 
+  renderApprovals();
+  renderInvoicePanel('bill', id, me);
   if (readOnly(me) || !bill.editable) disableEditing();
   preview();
 }
@@ -568,6 +628,55 @@ g('pay-form').onsubmit = async (e) => {
     e.target.reset(); await load(); toast('Payment recorded');
   } catch (err) { toast(err.message, true); }
 };
+
+/* Online payment through PayMongo: the server works out the amount and returns the checkout URL. */
+async function payOnline() {
+  const btn = g('pay-online');
+  btn.disabled = true;
+  try {
+    const r = await api(`/api/online-payments/bills/${id}/checkout`, { method: 'POST' });
+    window.location.href = r.checkout_url;
+  } catch (err) { toast(err.message, true); btn.disabled = false; }
+}
+
+/* Back from the payment page (?paid=1). The redirect proves nothing - the payment only shows up once
+   PayMongo's confirmation reaches the server - so wait a little for it. */
+let paidWatch = 0;
+function watchReturnFromPayment() {
+  if (new URLSearchParams(location.search).get('paid') !== '1') return;
+  if (bill.balance_due <= 0) { toast('Payment received. Thank you!'); history.replaceState(null, '', '/bill.html?id=' + id); return; }
+  if (paidWatch++ === 0) toast('Waiting for the payment to be confirmed...');
+  if (paidWatch <= 10) setTimeout(async () => { await load(); }, 4000);
+}
+
+/* Finance confirms the money was received; only then can the client see the Sales Invoice. */
+function renderPayConfirm() {
+  const el = g('pay-confirm');
+  if (!el) return;
+  const canConfirm = ['admin', 'finance_hr'].includes(me.role);
+  if (bill.status !== 'issued') { el.hidden = true; return; }
+  el.hidden = false;
+  let html;
+  if (bill.invoice_ready) {
+    html = `<div class="notice good" style="margin:0 0 8px">Payment confirmed by ${esc(bill.payment_confirmed_by || 'finance')} on ${esc(String(bill.payment_confirmed_at || '').slice(0, 10))}. The client can now view the Sales Invoice.</div>`
+      + (canConfirm ? '<button type="button" class="quiet" id="unconfirm-pay">Withdraw confirmation</button>' : '');
+  } else if (canConfirm) {
+    html = bill.fully_paid
+      ? '<p style="margin:0 0 8px">The recorded payments cover this bill. Confirm the money was received to release the Sales Invoice to the client.</p><button type="button" class="primary" id="confirm-pay">Confirm payment received</button>'
+      : '<p style="margin:0;color:var(--ink-soft)">Once the full payment is recorded, you can confirm it here to release the Sales Invoice to the client.</p>';
+  } else {
+    html = '<p style="margin:0;color:var(--ink-soft)">The Sales Invoice is released once finance confirms the payment.</p>';
+  }
+  el.innerHTML = html;
+  if (g('confirm-pay')) g('confirm-pay').onclick = async () => {
+    if (!confirm('Confirm that the full payment for ' + bill.statement_no + ' has been received? The client will then be able to view the Sales Invoice.')) return;
+    try { await api(`/api/bills/${id}/confirm-payment`, { method: 'POST' }); await load(); toast('Payment confirmed'); } catch (err) { toast(err.message, true); }
+  };
+  if (g('unconfirm-pay')) g('unconfirm-pay').onclick = async () => {
+    if (!confirm('Withdraw the payment confirmation? The client will no longer see the Sales Invoice.')) return;
+    try { await api(`/api/bills/${id}/unconfirm-payment`, { method: 'POST' }); await load(); toast('Confirmation withdrawn'); } catch (err) { toast(err.message, true); }
+  };
+}
 
 g('adj-form').onsubmit = async (e) => {
   e.preventDefault();

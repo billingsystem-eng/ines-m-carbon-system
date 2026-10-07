@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS users (
   username TEXT UNIQUE NOT NULL,
   password_hash TEXT NOT NULL,
   full_name TEXT NOT NULL,
-  role TEXT NOT NULL DEFAULT 'billing_officer',   -- admin | billing_officer | viewer
+  role TEXT NOT NULL DEFAULT 'billing_officer',   -- admin | billing_officer | finance_hr | viewer
   active INTEGER NOT NULL DEFAULT 1,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -186,7 +186,7 @@ CREATE TABLE IF NOT EXISTS quotations (
   prepared_by_name TEXT, prepared_by_title TEXT,
   approved_by_name TEXT, approved_by_title TEXT,
   contact_name TEXT, contact_phone TEXT, contact_email TEXT,
-  status TEXT NOT NULL DEFAULT 'draft',       -- draft | sent | accepted | declined
+  status TEXT NOT NULL DEFAULT 'draft',       -- draft | sent | accepted | paid | declined
   created_by TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -223,7 +223,62 @@ addColumn('users', 'client_id INTEGER REFERENCES clients(id)');
 addColumn('payment_methods', "approval_status TEXT NOT NULL DEFAULT 'approved'"); // pending | approved
 addColumn('payment_methods', 'approved_by TEXT');
 addColumn('payment_methods', 'approved_at TEXT');
-addColumn('payment_methods', 'created_by TEXT');     
+addColumn('payment_methods', 'created_by TEXT');
+addColumn('quotations', 'project_site TEXT');          // optional "Project Site" shown under the customer name
+addColumn('quotation_items', 'unit_material REAL NOT NULL DEFAULT 0');
+addColumn('quotation_items', 'unit_labor REAL NOT NULL DEFAULT 0');
+// Older quotations only had one unit price: treat it as the material cost.
+// unit_price is kept as material + labor so existing totals/list queries keep working.
+db.exec("UPDATE quotation_items SET unit_material = unit_price WHERE unit_material = 0 AND unit_labor = 0 AND unit_price > 0");     
+
+// Two-step approval record: 1) administrator, 2) finance / HR. Both are needed before a bill is final and can be issued.
+addColumn('bills', 'admin_approved_by TEXT');
+addColumn('bills', 'admin_approved_at TEXT');
+addColumn('bills', 'finance_approved_by TEXT');
+addColumn('bills', 'finance_approved_at TEXT');
+addColumn('bills', 'payment_confirmed_by TEXT');   // finance confirms the payment was actually received
+addColumn('bills', 'payment_confirmed_at TEXT');
+
+// Bills approved/finalised/issued before two-step approval existed: mark the steps as already satisfied.
+db.exec(`UPDATE bills SET admin_approved_by = 'Recorded before two-step approval' WHERE admin_approved_by IS NULL AND status IN ('approved','final','issued');
+UPDATE bills SET finance_approved_by = 'Recorded before two-step approval' WHERE finance_approved_by IS NULL AND status IN ('final','issued');`);
+
+// Scanned copies of the Sales Invoice, attached once a bill or quotation has been paid.
+db.exec(`CREATE TABLE IF NOT EXISTS invoice_files (
+  id INTEGER PRIMARY KEY,
+  entity TEXT NOT NULL,                       -- bill | quotation
+  entity_id INTEGER NOT NULL,
+  original_name TEXT NOT NULL,
+  stored_name TEXT NOT NULL,
+  mime TEXT NOT NULL,
+  size INTEGER NOT NULL,
+  uploaded_by TEXT,
+  uploaded_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_invoice_files ON invoice_files(entity, entity_id);`);
+
+// Online payments through the PayMongo hosted checkout. One row per checkout session we create;
+// the webhook marks it paid and records the payment on the bill. webhook_events de-duplicates
+// PayMongo's retried deliveries so a payment can never be recorded twice.
+db.exec(`CREATE TABLE IF NOT EXISTS online_payments (
+  id INTEGER PRIMARY KEY,
+  bill_id INTEGER NOT NULL REFERENCES bills(id) ON DELETE CASCADE,
+  reference TEXT NOT NULL UNIQUE,             -- reference_number we send to PayMongo
+  session_id TEXT,                            -- PayMongo checkout session id (cs_...)
+  amount REAL NOT NULL,                       -- pesos requested
+  status TEXT NOT NULL DEFAULT 'pending',     -- pending | paid
+  checkout_url TEXT,
+  created_by TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  paid_at TEXT,
+  provider_payment_id TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_online_payments_bill ON online_payments(bill_id);
+CREATE INDEX IF NOT EXISTS idx_online_payments_session ON online_payments(session_id);
+CREATE TABLE IF NOT EXISTS webhook_events (
+  event_id TEXT PRIMARY KEY,
+  received_at TEXT NOT NULL DEFAULT (datetime('now'))
+);`);
 
 // Seed a first administrator so the app is usable on first run.
 const count = db.prepare('SELECT COUNT(*) c FROM users').get().c;

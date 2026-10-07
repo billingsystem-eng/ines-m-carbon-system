@@ -192,7 +192,7 @@ function barChart(rows, key, color) {
   const rates = b.rate_breakdown || [];
   const prev = b.previous_bill;
   const other = Number(b.adjustments_total || 0) + Number(b.interest_charged || 0);
-  const isDraft = ['draft', 'for_review', 'void'].includes(b.status);
+  const isDraft = ['draft', 'for_review', 'approved', 'void'].includes(b.status);
 
   const rateRows = rates.length <= 1
     ? `<tr><td>Applicable electricity rate (Grid)</td><td class="v">${peso(rates[0] ? rates[0].rate : 0)}</td></tr>`

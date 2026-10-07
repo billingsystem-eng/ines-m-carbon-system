@@ -4,7 +4,7 @@ const { canEdit, requireRole, viewerScope } = require('../middleware/auth');
 const audit = require('../lib/audit');
 
 const router = express.Router();
-const STATUSES = ['draft', 'sent', 'accepted', 'declined'];
+const STATUSES = ['draft', 'sent', 'accepted', 'paid', 'declined'];
 
 const DEFAULT_TERMS = [
   '1) Order Confirmation: Upon the Client\u2019s acceptance of this quotation.',
@@ -46,7 +46,7 @@ function parse(b) {
   const data = {
     quote_date: text(b.quote_date, 10), valid_until: text(b.valid_until, 10),
     client_id: b.client_id ? Number(b.client_id) : null,
-    customer_name: text(b.customer_name, 200), client_ref_id: text(b.client_ref_id, 80),
+    customer_name: text(b.customer_name, 200), project_site: text(b.project_site, 200), client_ref_id: text(b.client_ref_id, 80),
     submitted_by: text(b.submitted_by, 120), contact_no: text(b.contact_no, 60),
     vat_rate: num(b.vat_rate ?? 12), terms: text(b.terms, 4000),
     prepared_by_name: text(b.prepared_by_name, 120), prepared_by_title: text(b.prepared_by_title, 120),
@@ -59,17 +59,20 @@ function parse(b) {
   if (!(data.vat_rate >= 0 && data.vat_rate <= 100)) return { error: 'The VAT rate must be between 0 and 100.' };
   if (data.client_id && !db.prepare('SELECT 1 FROM clients WHERE id = ?').get(data.client_id)) data.client_id = null;
   const items = (Array.isArray(b.items) ? b.items : []).map((i) => ({
-    description: text(i.description, 1500), quantity: num(i.quantity), unit: text(i.unit, 30) || 'pieces', unit_price: num(i.unit_price)
+    description: text(i.description, 1500), quantity: num(i.quantity), unit: text(i.unit, 30) || 'pieces',
+    unit_material: i.unit_material === '' || i.unit_material == null ? 0 : num(i.unit_material),
+    unit_labor: i.unit_labor === '' || i.unit_labor == null ? 0 : num(i.unit_labor)
   })).filter((i) => i.description);
   if (!items.length) return { error: 'Add at least one item with a description.' };
-  if (items.some((i) => !(i.quantity > 0) || !(i.unit_price >= 0))) return { error: 'Each item needs a quantity above zero and a valid unit price.' };
+  if (items.some((i) => !(i.quantity > 0) || !(i.unit_material >= 0) || !(i.unit_labor >= 0))) return { error: 'Each item needs a quantity above zero and valid material and labor costs.' };
+  items.forEach((i) => { i.unit_price = r2(i.unit_material + i.unit_labor); });
   return { data, items };
 }
 
 function saveItems(id, items) {
   db.prepare('DELETE FROM quotation_items WHERE quotation_id = ?').run(id);
-  const ins = db.prepare('INSERT INTO quotation_items (quotation_id, position, description, quantity, unit, unit_price) VALUES (?,?,?,?,?,?)');
-  items.forEach((i, n) => ins.run(id, n, i.description, i.quantity, i.unit, i.unit_price));
+  const ins = db.prepare('INSERT INTO quotation_items (quotation_id, position, description, quantity, unit, unit_price, unit_material, unit_labor) VALUES (?,?,?,?,?,?,?,?)');
+  items.forEach((i, n) => ins.run(id, n, i.description, i.quantity, i.unit, i.unit_price, i.unit_material, i.unit_labor));
 }
 
 router.get('/defaults', (req, res) => res.json({ terms: DEFAULT_TERMS, statuses: STATUSES }));
@@ -106,10 +109,10 @@ router.post('/', canEdit, (req, res) => {
   const { error, data, items } = parse(req.body || {});
   if (error) return res.status(400).json({ error });
   const id = db.transaction(() => {
-    const info = db.prepare(`INSERT INTO quotations (quote_no, quote_date, valid_until, client_id, customer_name, client_ref_id,
+    const info = db.prepare(`INSERT INTO quotations (quote_no, quote_date, valid_until, client_id, customer_name, project_site, client_ref_id,
         submitted_by, contact_no, vat_rate, terms, prepared_by_name, prepared_by_title, approved_by_name, approved_by_title,
         contact_name, contact_phone, contact_email, created_by)
-      VALUES (@quote_no, @quote_date, @valid_until, @client_id, @customer_name, @client_ref_id, @submitted_by, @contact_no,
+      VALUES (@quote_no, @quote_date, @valid_until, @client_id, @customer_name, @project_site, @client_ref_id, @submitted_by, @contact_no,
         @vat_rate, @terms, @prepared_by_name, @prepared_by_title, @approved_by_name, @approved_by_title,
         @contact_name, @contact_phone, @contact_email, @created_by)`)
       .run({ ...data, quote_no: nextNo(data.quote_date), created_by: req.session.username || null });
@@ -129,7 +132,7 @@ router.put('/:id', canEdit, (req, res) => {
   if (error) return res.status(400).json({ error });
   db.transaction(() => {
     db.prepare(`UPDATE quotations SET quote_date=@quote_date, valid_until=@valid_until, client_id=@client_id,
-        customer_name=@customer_name, client_ref_id=@client_ref_id, submitted_by=@submitted_by, contact_no=@contact_no,
+        customer_name=@customer_name, project_site=@project_site, client_ref_id=@client_ref_id, submitted_by=@submitted_by, contact_no=@contact_no,
         vat_rate=@vat_rate, terms=@terms, prepared_by_name=@prepared_by_name, prepared_by_title=@prepared_by_title,
         approved_by_name=@approved_by_name, approved_by_title=@approved_by_title, contact_name=@contact_name,
         contact_phone=@contact_phone, contact_email=@contact_email, updated_at=datetime('now') WHERE id=@id`).run({ ...data, id });

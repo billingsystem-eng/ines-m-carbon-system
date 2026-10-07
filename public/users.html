@@ -26,6 +26,7 @@
           <div class="field"><label for="u-name">Full name</label><input id="u-name" required></div>
           <div class="field"><label for="u-role">Role</label><select id="u-role">
             <option value="billing_officer">Billing officer</option>
+            <option value="finance_hr">Finance / HR</option>
             <option value="admin">Administrator</option>
             <option value="viewer">Viewer</option></select></div>
           <div class="field" id="u-client-wrap" hidden><label for="u-client">Client (what this viewer can see)</label><select id="u-client"></select></div>
@@ -47,7 +48,7 @@
 <script src="/js/i18n.js"></script>
 <script src="/js/app.js"></script>
 <script>
-const ROLES = { admin: 'Administrator', billing_officer: 'Billing officer', viewer: 'Viewer' };
+const ROLES = { admin: 'Administrator', billing_officer: 'Billing officer', finance_hr: 'Finance / HR', viewer: 'Viewer' };
 let CLIENTS = [];
 const clientOptions = (sel) => '<option value="">— No client (sees nothing) —</option>' +
   CLIENTS.map((c) => `<option value="${c.id}"${String(c.id) === String(sel) ? ' selected' : ''}>${esc(c.name)}</option>`).join('');
@@ -62,12 +63,19 @@ async function load() {
         ? `<select onchange="assign(${u.id}, this.value)">${clientOptions(u.client_id)}</select>`
         : '<span style="color:var(--ink-soft)">All</span>'}</td>
       <td><span class="pill ${u.active ? 'issued' : 'void'}">${u.active ? 'Active' : 'Deactivated'}</span></td>
-      <td class="num"><button class="quiet" onclick="toggle(${u.id}, ${u.active ? 0 : 1})">${u.active ? 'Deactivate' : 'Reactivate'}</button></td>
+      <td class="num"><button class="quiet" onclick="toggle(${u.id}, ${u.active ? 0 : 1})">${u.active ? 'Deactivate' : 'Reactivate'}</button>
+        <button class="quiet danger" onclick="removeUser(${u.id}, '${esc(u.username).replace(/'/g, "\\'")}')">Delete</button></td>
       </tr>`).join('')}</tbody></table>`;
 }
 
 async function assign(id, client_id) {
   try { await api('/api/auth/users/' + id, { method: 'PATCH', body: { client_id: client_id ? Number(client_id) : null } }); toast('Client access updated'); await load(); }
+  catch (e) { toast(e.message, true); }
+}
+
+async function removeUser(id, username) {
+  if (!confirm(`Delete user "${username}"? This can’t be undone. Their past activity stays in the activity log.`)) return;
+  try { await api('/api/auth/users/' + id, { method: 'DELETE' }); toast('User deleted'); await load(); }
   catch (e) { toast(e.message, true); }
 }
 
