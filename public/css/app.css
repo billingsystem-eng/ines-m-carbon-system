@@ -147,6 +147,28 @@ button.danger, button.quiet.danger { color: var(--alert); border-color: #d9aaa4;
 button.danger:hover, button.quiet.danger:hover { background: #f3d6d2; border-color: var(--alert); }
 button.primary.danger { background: var(--alert); border-color: var(--alert); color: #fff; }
 button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Raised look so buttons read as clickable: resting shadow, lifts on hover, presses in on click. */
+:root {
+  --btn-shadow: 0 1px 2px rgba(21, 35, 34, .22), 0 2px 5px rgba(21, 35, 34, .12);
+  --btn-shadow-hover: 0 2px 4px rgba(21, 35, 34, .24), 0 5px 11px rgba(21, 35, 34, .16);
+  --btn-shadow-press: 0 0 1px rgba(21, 35, 34, .3);
+}
+button, .btn, .pm-btn { box-shadow: var(--btn-shadow); transition: background .12s, border-color .12s, color .12s, box-shadow .15s, transform .15s; }
+button:hover:not(:disabled), .btn:hover, .pm-btn:hover { box-shadow: var(--btn-shadow-hover); transform: translateY(-1px); }
+button:active:not(:disabled), .btn:active, .pm-btn:active { box-shadow: var(--btn-shadow-press); transform: translateY(1px); }
+button:disabled { box-shadow: none; }
+.rail .who button { box-shadow: 0 1px 3px rgba(0, 0, 0, .45); }
+.rail .who button:hover:not(:disabled) { box-shadow: 0 3px 8px rgba(0, 0, 0, .5); }
+/* Segmented controls: one shadow on the whole group, not on each segment. */
+.seg { box-shadow: var(--btn-shadow); }
+.seg button, .seg button:hover:not(:disabled), .seg button:active:not(:disabled) { box-shadow: none; transform: none; }
+/* Not buttons in the raised sense: list rows, tabs, tooltip rows and icon-only copy buttons stay flat. */
+.thread-item, .pm-copy, .ww .tab, .ww .tip button, .ww .seg button { box-shadow: none !important; transform: none !important; }
+.ww .seg { box-shadow: var(--btn-shadow); }
+.pm-btn:not(.approve) { background: var(--surface); }
+.pm-btn:not(.approve):hover { background: var(--signal-tint); }
+@media print { button, .btn, .seg { box-shadow: none !important; } }
 .actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
 /* ---------- Status pills ---------- */
