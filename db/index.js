@@ -280,6 +280,58 @@ CREATE TABLE IF NOT EXISTS webhook_events (
   received_at TEXT NOT NULL DEFAULT (datetime('now'))
 );`);
 
+// Payment chat between ONE client login and INES staff. A conversation is identified by
+// (bill, client login): client_user_id is the viewer who owns it. Two logins of the same client
+// never see each other's messages; staff see every conversation.
+//   side = 'client' (the viewer wrote it) or 'staff' (admin / billing officer / finance-HR wrote it).
+// bill_thread_reads remembers, per conversation and reader, the last message seen (for unread badges).
+const threadReadsExisted = !!db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'bill_thread_reads'").get();
+db.exec(`CREATE TABLE IF NOT EXISTS bill_messages (
+  id INTEGER PRIMARY KEY,
+  bill_id INTEGER NOT NULL REFERENCES bills(id) ON DELETE CASCADE,
+  user_id INTEGER,
+  sender_name TEXT NOT NULL,
+  sender_role TEXT NOT NULL,
+  side TEXT NOT NULL,
+  body TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_bill_messages_bill ON bill_messages(bill_id, id);
+CREATE TABLE IF NOT EXISTS bill_thread_reads (
+  bill_id INTEGER NOT NULL REFERENCES bills(id) ON DELETE CASCADE,
+  thread_user_id INTEGER NOT NULL,
+  user_id INTEGER NOT NULL,
+  last_id INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (bill_id, thread_user_id, user_id)
+);`);
+addColumn('bill_messages', 'client_user_id INTEGER');   // the client login the conversation belongs to
+db.exec('CREATE INDEX IF NOT EXISTS idx_bill_messages_thread ON bill_messages(bill_id, client_user_id, id)');
+
+// Messages written while every login of a client shared one thread get an owner here (idempotent: only
+// rows without one are touched). Client messages belong to their author. A staff message belongs to the
+// client login who wrote most recently before it on that bill, else to the client's only login.
+db.exec(`UPDATE bill_messages SET client_user_id = user_id WHERE client_user_id IS NULL AND side = 'client';
+UPDATE bill_messages SET client_user_id = (
+  SELECT c.client_user_id FROM bill_messages c
+  WHERE c.bill_id = bill_messages.bill_id AND c.side = 'client' AND c.id < bill_messages.id AND c.client_user_id IS NOT NULL
+  ORDER BY c.id DESC LIMIT 1)
+WHERE client_user_id IS NULL AND side = 'staff';
+UPDATE bill_messages SET client_user_id = (
+  SELECT u.id FROM users u JOIN bills b ON b.client_id = u.client_id
+  WHERE b.id = bill_messages.bill_id AND u.role = 'viewer' AND u.active = 1)
+WHERE client_user_id IS NULL AND side = 'staff' AND (
+  SELECT COUNT(*) FROM users u JOIN bills b ON b.client_id = u.client_id
+  WHERE b.id = bill_messages.bill_id AND u.role = 'viewer' AND u.active = 1) = 1;`);
+
+// One time: carry the old per-bill "last seen" pointers over to each conversation of that bill, so nothing
+// that was already read shows as unread again.
+if (!threadReadsExisted && db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'bill_message_reads'").get()) {
+  db.exec(`INSERT OR IGNORE INTO bill_thread_reads (bill_id, thread_user_id, user_id, last_id)
+    SELECT r.bill_id, t.client_user_id, r.user_id, r.last_id
+    FROM bill_message_reads r
+    JOIN (SELECT DISTINCT bill_id, client_user_id FROM bill_messages WHERE client_user_id IS NOT NULL) t ON t.bill_id = r.bill_id`);
+}
+
 // Seed a first administrator so the app is usable on first run.
 const count = db.prepare('SELECT COUNT(*) c FROM users').get().c;
 if (count === 0) {

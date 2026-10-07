@@ -52,6 +52,8 @@ const NAV_ICONS = {
   activity: '<path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1L3.5 8.5"/><path d="M3.5 3.5v5h5M12 7.5V12l3 2"/>',
   users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.7-3.6 3.2-5.5 6.5-5.5s5.8 1.9 6.5 5.5"/><path d="M16 4.7a3.5 3.5 0 0 1 0 6.6M18 14.8c1.9.7 3.1 2.4 3.5 5.2"/>',
   payment: '<path d="M19 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0 0 4h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5"/><path d="M16 13h2"/>',
+  messages: '<path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v9a1.5 1.5 0 0 1-1.5 1.5H10l-4.5 4v-4A1.5 1.5 0 0 1 4 14.5z"/><path d="M8 9h8M8 12h5"/>',
+  products: '<path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.6 10.8c.6.5 1.1 1.2 1.1 2V16h5v-.2c0-.8.5-1.5 1.1-2A6 6 0 0 0 12 3z"/>',
   signout: '<path d="M9 21H5.5A1.5 1.5 0 0 1 4 19.5v-15A1.5 1.5 0 0 1 5.5 3H9"/><path d="M16 17l5-5-5-5M21 12H9"/>'
 };
 const navIcon = (k) => `<svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true">${NAV_ICONS[k]}</svg>`;
@@ -60,6 +62,8 @@ const NAV = [
   { href: '/dashboard.html', label: 'Overview', icon: 'overview' },
   { href: '/clients.html', label: 'Clients & projects', icon: 'clients' },
   { href: '/bills.html', label: 'Billing', icon: 'billing' },
+  { href: '/messages.html', label: 'Messages', icon: 'messages' },
+  { href: '/products.html', label: 'Products', icon: 'products' },
   { href: '/quotations.html', label: 'Quotations', icon: 'quotations', also: ['/quotation.html', '/quotation-print.html'] },
   { href: '/monitor.html', label: 'Live monitor', icon: 'monitor' },
   { href: '/audit.html', label: 'Activity log', icon: 'activity' },
@@ -68,8 +72,8 @@ const NAV = [
 ];
 
 /** Pages a viewer (client login) may open, all read-only: billing, quotations, live monitor, payment methods. */
-const VIEWER_PAGES = ['/bills.html', '/bill.html', '/statement.html', '/invoice.html', '/payment-methods.html',
-  '/quotations.html', '/quotation-print.html', '/monitor.html'];
+const VIEWER_PAGES = ['/bills.html', '/bill.html', '/statement.html', '/invoice.html', '/payment-methods.html', '/messages.html',
+  '/quotations.html', '/quotation-print.html', '/monitor.html', '/products.html'];
 
 /** Renders the left rail and returns the signed-in user. */
 async function shell() {
@@ -94,7 +98,18 @@ async function shell() {
     location.href = '/login.html';
   };
   document.body.dataset.role = me.role;
+  // Unread payment-chat messages show as a badge on the Messages link.
+  api('/api/messages/unread').then((u) => setMessageBadge(u.total)).catch(() => {});
   return me;
+}
+
+/** Shows (or clears) the unread count on the Messages link in the left rail. */
+function setMessageBadge(n) {
+  const link = document.querySelector('.rail nav a[href="/messages.html"]');
+  if (!link) return;
+  const old = link.querySelector('.nav-badge');
+  if (old) old.remove();
+  if (n > 0) link.insertAdjacentHTML('beforeend', `<span class="nav-badge" title="Unread payment messages">${n > 99 ? '99+' : n}</span>`);
 }
 
 /** Lets any signed-in user change their own password (needs the current one). */

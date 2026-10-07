@@ -42,6 +42,7 @@
   .si .draft-flag { color: #b00020; font-weight: 700; margin-top: 6px; }
   .si footer { margin-top: 18px; border-top: 1px solid #c9cde0; padding-top: 6px; text-align: center; font-style: italic; font-size: 10.5px; }
   .opts { display: flex; gap: 14px; align-items: end; flex-wrap: wrap; margin: 0 0 14px; }
+  .opts[hidden] { display: none; }
   .opts label { display: block; font-size: .8rem; color: var(--ink-soft); margin-bottom: 3px; }
   @page { size: A4; margin: 10mm; }
   @media print { .si { border: 0; padding: 0; max-width: none; } main { max-width: none; } }
@@ -94,11 +95,13 @@ function inWords(amount) {
 }
 
 let bill = null;
+let locked = false; // true for client (viewer) logins
 
 function render() {
   const b = bill;
-  const mode = document.getElementById('o-vat').value;
-  const invNo = document.getElementById('o-no').value.trim() || b.statement_no;
+  // Client (viewer) logins can't change the invoice number or VAT treatment: fixed values, controls removed.
+  const mode = locked ? 'none' : document.getElementById('o-vat').value;
+  const invNo = locked ? b.statement_no : (document.getElementById('o-no').value.trim() || b.statement_no);
   const charge = Number(b.amount_billed || 0);          // INES share for the period
   const other = Number(b.adjustments_total || 0) + Number(b.interest_charged || 0);
   const base = r2(charge + other);                      // this period's charges
@@ -160,14 +163,17 @@ function render() {
 
 (async () => {
   const me = await shell();
-  if (me.role === 'viewer') document.querySelector('.opts').hidden = true;
+  locked = me.role === 'viewer';
+  if (locked) document.querySelector('.opts').remove();
   if (!id) return;
   bill = await api('/api/bills/' + id);
   document.getElementById('back').href = '/bill.html?id=' + bill.id;
   document.title = bill.statement_no + ' — Sales invoice';
-  document.getElementById('o-no').value = bill.statement_no;
-  document.getElementById('o-no').oninput = render;
-  document.getElementById('o-vat').onchange = render;
+  if (!locked) {
+    document.getElementById('o-no').value = bill.statement_no;
+    document.getElementById('o-no').oninput = render;
+    document.getElementById('o-vat').onchange = render;
+  }
   render();
 })().catch((e) => toast(e.message, true));
 </script>
