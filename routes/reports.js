@@ -82,12 +82,15 @@ router.get('/overview', (req, res) => {
 });
 
 router.get('/audit', (req, res) => {
-  const { entity, q } = req.query;
+  const { entity, q, before } = req.query;
+  const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 300, 1), 500);
   let sql = 'SELECT * FROM audit_log WHERE 1=1';
   const args = [];
   if (entity) { sql += ' AND entity = ?'; args.push(entity); }
+  if (before) { sql += ' AND id < ?'; args.push(Number(before) || 0); } // "show older": rows before this id
   if (q) { sql += ' AND (detail LIKE ? OR username LIKE ? OR action LIKE ?)'; args.push(`%${q}%`, `%${q}%`, `%${q}%`); }
-  sql += ' ORDER BY id DESC LIMIT 300';
+  sql += ' ORDER BY id DESC LIMIT ?';
+  args.push(limit);
   res.json(db.prepare(sql).all(...args));
 });
 
