@@ -1,5 +1,5 @@
 const express = require('express');
-const { v4: uuid } = require('uuid');
+const { randomUUID: uuid } = require('crypto'); // built in; the uuid package is ESM-only in v12+ and can't be require()d on Node 18
 const db = require('../db');
 const { canEdit, requireRole, viewerScope } = require('../middleware/auth');
 const { balanceDue, fullyPaid, invoiceReady } = require('../lib/invoice-ready');
