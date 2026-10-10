@@ -25,6 +25,7 @@
         <div class="body"><form id="uform">
           <div class="field"><label for="u-username">Username</label><input id="u-username" required></div>
           <div class="field"><label for="u-name">Full name</label><input id="u-name" required></div>
+          <div class="field"><label for="u-email">Email (for payment reminders)</label><input id="u-email" type="email" autocomplete="off"></div>
           <div class="field"><label for="u-role">Role</label><select id="u-role">
             <option value="billing_officer">Billing officer</option>
             <option value="finance_hr">Finance / HR</option>
@@ -51,15 +52,18 @@
 <script>
 const ROLES = { admin: 'Administrator', billing_officer: 'Billing officer', finance_hr: 'Finance / HR', viewer: 'Viewer' };
 let CLIENTS = [];
+let USERS = [];
 const clientOptions = (sel) => '<option value="">— No client (sees nothing) —</option>' +
   CLIENTS.map((c) => `<option value="${c.id}"${String(c.id) === String(sel) ? ' selected' : ''}>${esc(c.name)}</option>`).join('');
 
 async function load() {
   const users = await api('/api/auth/users');
+  USERS = users;
   document.getElementById('list').innerHTML = `<table>
-    <thead><tr><th>Username</th><th>Name</th><th>Role</th><th>Client access</th><th>Status</th><th></th></tr></thead>
+    <thead><tr><th>Username</th><th>Name</th><th>Role</th><th>Email</th><th>Client access</th><th>Status</th><th></th></tr></thead>
     <tbody>${users.map((u) => `<tr><td>${esc(u.username)}</td><td>${esc(u.full_name)}</td>
       <td>${ROLES[u.role] || u.role}</td>
+      <td>${u.email ? esc(u.email) : '<span style="color:var(--ink-soft)">None</span>'} <button class="quiet" onclick="setEmail(${u.id})">${u.email ? 'Edit' : 'Add'}</button></td>
       <td>${u.role === 'viewer'
         ? `<select onchange="assign(${u.id}, this.value)">${clientOptions(u.client_id)}</select>`
         : '<span style="color:var(--ink-soft)">All</span>'}</td>
@@ -67,6 +71,14 @@ async function load() {
       <td class="num"><button class="quiet" onclick="toggle(${u.id}, ${u.active ? 0 : 1})">${u.active ? 'Deactivate' : 'Reactivate'}</button>
         <button class="quiet danger" onclick="removeUser(${u.id}, '${esc(u.username).replace(/'/g, "\\'")}')">Delete</button></td>
       </tr>`).join('')}</tbody></table>`;
+}
+
+async function setEmail(id) {
+  const u = USERS.find((x) => x.id === id);
+  const v = prompt('Email address for payment reminders (leave empty to remove):', u && u.email ? u.email : '');
+  if (v === null) return;
+  try { await api('/api/auth/users/' + id, { method: 'PATCH', body: { email: v.trim() } }); toast('Email updated'); await load(); }
+  catch (e) { toast(e.message, true); }
 }
 
 async function assign(id, client_id) {
@@ -91,6 +103,7 @@ document.getElementById('uform').onsubmit = async (e) => {
     await api('/api/auth/users', { method: 'POST', body: {
       username: document.getElementById('u-username').value.trim(),
       full_name: document.getElementById('u-name').value.trim(),
+      email: document.getElementById('u-email').value.trim() || null,
       role: document.getElementById('u-role').value,
       client_id: document.getElementById('u-role').value === 'viewer' ? document.getElementById('u-client').value || null : null,
       password: document.getElementById('u-pass').value
