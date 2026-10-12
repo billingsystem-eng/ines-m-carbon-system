@@ -105,8 +105,8 @@ async function shell() {
     <div class="who">
       <div class="who-id"><button id="chpic" type="button" class="who-pic" title="Change profile photo" aria-label="Change profile photo">${userAvatar(me.role === 'viewer' ? 'client' : 'staff', { id: me.id, v: me.avatar_v })}</button>
         <span><b>${esc(me.full_name)}</b>${roleText}</span></div>
-      ${me.role === 'viewer' ? '<button id="chpw" type="button">Change password</button> ' : ''}<button id="signout">${navIcon('signout')}Sign out</button></div>`;
-  const chpw = rail.querySelector('#chpw');   // client logins only
+      ${me.role !== 'admin' ? '<button id="chpw" type="button">Change password</button> ' : ''}<button id="signout">${navIcon('signout')}Sign out</button></div>`;
+  const chpw = rail.querySelector('#chpw');   // every role except administrators
   if (chpw) chpw.onclick = openPasswordDialog;
   rail.querySelector('#chpic').onclick = () => openPhotoDialog(me, (v) => {
     me.avatar_v = v;
