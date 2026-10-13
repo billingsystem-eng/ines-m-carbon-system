@@ -808,7 +808,10 @@ Object.assign(KO, {
  "Scroll sites right": "사이트 오른쪽으로 스크롤",
  "Fit all sites": "전체 사이트 보기",
  "Zoom in": "확대", "Zoom out": "축소",
+<<<<<<< HEAD
  "One site (size shows energy saved)": "사이트 1곳 (원 크기는 절감한 에너지량)", "Group of nearby sites": "근처 사이트 묶음",
+=======
+>>>>>>> 6298d625af79ddfe0e35473721e9d87951867055
  "Scroll or pinch to zoom, drag to move. Dark circles group nearby sites; click one to zoom in.": "스크롤하거나 핀치하여 확대/축소하고, 드래그하여 이동하세요. 어두운 원은 근처 사이트를 묶은 것이며, 클릭하면 확대됩니다.",
  "No monitored site is linked to your account yet. Please contact INES Solutions.": "계정에 연결된 모니터링 사이트가 아직 없습니다. INES Solutions에 문의하세요.",
  "kW now": "현재 kW",

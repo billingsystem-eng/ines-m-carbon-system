@@ -68,6 +68,7 @@ router.get('/overview', wrap(async (req, res) => {
   res.json(await provider.overview());
 }));
 
+<<<<<<< HEAD
 // Staff-only: the dashboard's raw site tree and ranking, to see why a site is missing from the map.
 router.get('/debug/tree', wrap(async (req, res) => {
   if (req.allowedSites) return res.status(403).json({ error: 'Your role does not allow this.' });
@@ -75,6 +76,8 @@ router.get('/debug/tree', wrap(async (req, res) => {
   res.json(await provider.debugTree());
 }));
 
+=======
+>>>>>>> 6298d625af79ddfe0e35473721e9d87951867055
 // Everything the dashboard's own site screen shows. Null when the provider (sample data) has no such figures.
 router.get('/projects/:id/details', wrap(async (req, res) => res.json(provider.details ? await provider.details(req.params.id) : null)));
 

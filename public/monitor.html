@@ -9,7 +9,11 @@
 <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Schibsted+Grotesk:wght@400;500;600;700&family=Chivo+Mono:wght@500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/app.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<<<<<<< HEAD
 <script src="/js/ph-regions.js"></script>
+=======
+<script src="/js/ph-map.js"></script>
+>>>>>>> 6298d625af79ddfe0e35473721e9d87951867055
 <style>
 /* Live monitor, scoped under .ww so the other billing pages are untouched. */
 .ww {
@@ -124,6 +128,7 @@
 .ww .cat .amt small { font-weight: 400; color: var(--muted); }
 
 /* map */
+<<<<<<< HEAD
 .ww .tip { position: absolute; z-index: 2; width: 320px; max-width: calc(100vw - 32px); padding: 12px 14px 8px; border-radius: 14px; background: #fff; color: var(--ink); border: 1px solid var(--rule); font-size: 13px; transform: translate(-50%, -100%); pointer-events: none; box-shadow: 0 14px 34px rgba(15,31,29,.2), 0 2px 6px rgba(15,31,29,.08); }
 .ww .tip.below { transform: translate(-50%, 0); }
 .ww .tip.sticky { pointer-events: auto; }
@@ -132,6 +137,25 @@
 .ww .tip button { display: flex; justify-content: space-between; align-items: baseline; gap: 14px; width: 100%; margin-top: 8px; padding: 8px 6px 7px; border: 0; border-top: 1px solid #e7ede9; background: none; color: var(--ink); text-align: left; font-size: 13px; border-radius: 6px; }
 .ww .tip button span:last-child { color: var(--line); font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .ww .tip.sticky button:hover { background: #f1f6ee; }
+=======
+.ww .mapwrap { position: relative; border-radius: 10px; border: 1px solid var(--rule); background: #dfeae3; }
+.ww .mapwrap svg { display: block; width: 100%; height: auto; max-height: 760px; border-radius: 10px; }
+.ww .sea { fill: #dfeae3; }
+.ww .land { fill: #fff; stroke: #9db3a8; stroke-width: .6; stroke-linejoin: round; }
+.ww .pin { cursor: pointer; outline: none; }
+.ww .pin circle { fill: var(--leaf); fill-opacity: .9; stroke: #fff; stroke-width: 1.5; }
+.ww .pin.cluster circle { fill: var(--deep); fill-opacity: .93; }
+.ww .pin .count { fill: #fff; font: 600 15px var(--sans); text-anchor: middle; dominant-baseline: central; pointer-events: none; }
+.ww .pin:focus-visible circle { stroke: var(--line); stroke-width: 3; }
+.ww .plabel { font: 500 14px var(--sans); fill: var(--ink); paint-order: stroke; stroke: #fff; stroke-width: 4px; stroke-linejoin: round; }
+.ww .tip { position: absolute; z-index: 2; width: 340px; max-width: calc(100vw - 32px); padding: 10px 12px 12px; border-radius: 8px; background: var(--deep); color: #fff; font-size: 13px; transform: translate(-50%, -100%); pointer-events: none; box-shadow: 0 8px 22px rgba(15,31,29,.3); }
+.ww .tip.below { transform: translate(-50%, 0); }
+.ww .tip.sticky { pointer-events: auto; }
+.ww .tip strong { display: block; }
+.ww .tip > span { display: block; color: #b4c8c1; }
+.ww .tip button { display: flex; justify-content: space-between; align-items: baseline; gap: 14px; width: 100%; margin-top: 8px; padding: 8px 0 0; border: 0; border-top: 1px solid rgba(255,255,255,.18); background: none; color: #fff; text-align: left; font-size: 13px; }
+.ww .tip button span:last-child { color: #b4c8c1; white-space: nowrap; }
+>>>>>>> 6298d625af79ddfe0e35473721e9d87951867055
 .ww .tip.sticky button:hover span:first-child { text-decoration: underline; }
 
 .ww .hero.ov-hero { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: stretch; gap: 28px 40px; }
@@ -179,8 +203,11 @@
 .ww #siteDetails .figure .v small.dl { display: inline-block; margin: 6px 0 0; padding: 1px 8px; border-radius: 999px; background: #e9eee8; font-size: 11px; font-weight: 600; color: var(--muted); }
 .ww #siteDetails .figure.key { background: linear-gradient(160deg, #f0f8e8, #e3f0d3); border-color: var(--leaf-line, #b9d49a); }
 .ww #siteDetails .figure.key .v { color: var(--line); font-size: clamp(24px, 2.8vw, 32px); }
+<<<<<<< HEAD
 .ww #siteDetails .figure.key.bad { background: linear-gradient(160deg, #fdeeec, #f8d9d5); border-color: #e3a79f; }
 .ww #siteDetails .figure.key.bad .v { color: var(--bad); }
+=======
+>>>>>>> 6298d625af79ddfe0e35473721e9d87951867055
 .ww .charts { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 18px; }
 .ww .charts .block { margin-bottom: 18px; }
 @media (max-width: 900px) { .ww .charts { grid-template-columns: 1fr; } .ww #siteDetails .figures { grid-template-columns: 1fr 1fr; } }
@@ -193,6 +220,7 @@
 .ww .tabnav[disabled] { opacity: .35; pointer-events: none; }
 @media (max-width: 900px) { .ww .tabnav { display: none; } }
 
+<<<<<<< HEAD
 /* map: a dark, extruded Philippines that drills down from regions to the cities of NCR */
 .ww .mapwrap { position: relative; border-radius: 14px; border: 1px solid #1d4a33; overflow: hidden; min-height: 320px;
   background: radial-gradient(ellipse at 50% 38%, #12402b 0%, #0a2218 62%, #05110c 100%); }
@@ -236,6 +264,15 @@
 .ww .bld-actions a:hover { background: rgba(255,255,255,.12); }
 .ww .bld-actions button:hover { background: #26b46d; }
 @media (max-width: 600px) { .ww .bld { left: 12px; width: auto; } }
+=======
+.ww #phMap { cursor: grab; touch-action: auto; }
+.ww #phMap.panning { cursor: grabbing; }
+.ww .land, .ww .pin circle { vector-effect: non-scaling-stroke; }
+.ww .pin:hover circle { stroke: var(--deep); stroke-width: 2.5; fill-opacity: 1; }
+.ww .mapctl { position: absolute; top: 10px; right: 10px; z-index: 3; display: flex; flex-direction: column; gap: 6px; }
+.ww .mapctl button { width: 36px; height: 36px; border-radius: 8px; border: 1px solid var(--rule); background: #fff; font-size: 19px; line-height: 1; color: var(--ink); box-shadow: 0 1px 3px rgba(21,35,34,.18); }
+.ww .mapctl button:hover { background: var(--deep); border-color: var(--deep); color: #fff; }
+>>>>>>> 6298d625af79ddfe0e35473721e9d87951867055
 </style>
 <link rel="icon" type="image/png" href="/favicon.png">
 </head>
@@ -299,6 +336,7 @@
 
       <div class="ov">
         <section class="block">
+<<<<<<< HEAD
           <div class="head"><h2>Where the sites are</h2><p id="mapHint">Click a region to see its sites. Click NCR, Region IV-A or MIMAROPA to open its map.</p></div>
           <div class="mapwrap" id="mapWrap">
             <svg id="phMap" role="group" aria-label="Map of the Philippines with monitored sites"></svg>
@@ -312,6 +350,13 @@
               <div class="bld-actions"><a id="bldMaps" target="_blank" rel="noopener">Open in Google Maps</a><button type="button" id="bldOpen">Open dashboard</button></div>
             </aside>
             <div class="maplegend">The number after each name is how many sites are monitored there<span id="mapNote"></span></div>
+=======
+          <div class="head"><h2>Where the sites are</h2><p>Scroll or pinch to zoom, drag to move. Dark circles group nearby sites; click one to zoom in.</p></div>
+          <div class="mapwrap" id="mapWrap">
+            <svg id="phMap" role="group" aria-label="Map of the Philippines with monitored sites"></svg>
+            <div class="mapctl" id="mapCtl"><button type="button" data-z="in" aria-label="Zoom in" title="Zoom in">+</button><button type="button" data-z="out" aria-label="Zoom out" title="Zoom out">&minus;</button><button type="button" data-z="fit" aria-label="Fit all sites" title="Fit all sites">&#9678;</button></div>
+            <div class="tip" id="mapTip" hidden></div>
+>>>>>>> 6298d625af79ddfe0e35473721e9d87951867055
           </div>
         </section>
         <div class="right">
@@ -725,6 +770,7 @@ function renderOverview(o) {
   $('#cats').innerHTML = [['Lighting', c.lighting]].map(([name, v]) =>
     `<div class="cat"><span class="name">${name}</span><span class="share"><span><i style="width:${(v / total * 100).toFixed(1)}%"></i></span></span><span class="amt">${nf(v)} <small>kWh</small></span></div>`).join('');
 
+<<<<<<< HEAD
   try { drawMap(o); } catch (err) { console.error('map', err); $('#mapNote').textContent = ' \u00b7 map error: ' + err.message; }
 }
 
@@ -941,6 +987,171 @@ function showTip(g, c) {
     ? `<strong>${esc(c.label)}</strong><span>${c.items.length} sites</span>`
     : `<strong>${esc(c.items[0].name)}</strong><span>${esc(c.items[0].area || c.items[0].location || '')}</span>`;
   tip.innerHTML = head + c.items.map((p) => `<button type="button" data-open="${esc(p.id)}"><span>${esc(p.name)}</span><span>${right(p)}</span></button>`).join('');
+=======
+  drawMap(o);
+}
+
+// The same Mercator projection the map file was built with
+function mapXY(lon, lat) {
+  const P = window.PH_MAP, l = lon * Math.PI / 180, f = lat * Math.PI / 180;
+  return [P.tx + P.k * l, P.ty - P.k * Math.log(Math.tan(Math.PI / 4 + f / 2))];
+}
+
+/* ---------- map view: zoom, pan, fit ---------- */
+const MAXK = 10, mv = { k: 1, cx: 0, cy: 0, init: false }, mapDrag = { moved: false };
+function vbox() { const P = window.PH_MAP; return { x: mv.cx - P.w / (2 * mv.k), y: mv.cy - P.h / (2 * mv.k), w: P.w / mv.k, h: P.h / mv.k }; }
+function applyView() {
+  const P = window.PH_MAP, svg = $('#phMap');
+  mv.k = Math.min(MAXK, Math.max(1, mv.k));
+  const hw = P.w / (2 * mv.k), hh = P.h / (2 * mv.k);
+  mv.cx = Math.min(P.w - hw, Math.max(hw, mv.cx)); mv.cy = Math.min(P.h - hh, Math.max(hh, mv.cy));
+  const b = vbox();
+  svg.setAttribute('viewBox', `${b.x.toFixed(2)} ${b.y.toFixed(2)} ${b.w.toFixed(2)} ${b.h.toFixed(2)}`);
+  svg.style.touchAction = mv.k > 1.01 ? 'none' : 'auto'; // let a phone scroll the page until the map is zoomed in
+}
+let redrawQueued = false;
+function redrawMap() { if (redrawQueued) return; redrawQueued = true; requestAnimationFrame(() => { redrawQueued = false; if (state.overview && state.view === 'overview') drawMap(state.overview); }); }
+function fitSites(o) {
+  const P = window.PH_MAP, pts = o.projects.map((p) => mapXY(p.lon, p.lat));
+  if (!pts.length) { mv.k = 1; mv.cx = P.w / 2; mv.cy = P.h / 2; return; }
+  const xs = pts.map((q) => q[0]), ys = pts.map((q) => q[1]);
+  const x1 = Math.min(...xs), x2 = Math.max(...xs), y1 = Math.min(...ys), y2 = Math.max(...ys);
+  mv.k = Math.min(MAXK, Math.max(1, 0.8 * Math.min(P.w / Math.max(x2 - x1, 90), P.h / Math.max(y2 - y1, 90))));
+  mv.cx = (x1 + x2) / 2; mv.cy = (y1 + y2) / 2;
+}
+function zoomAt(f, px, py) {
+  const P = window.PH_MAP, b = vbox(), mx = b.x + px * b.w, my = b.y + py * b.h;
+  mv.k = Math.min(MAXK, Math.max(1, mv.k * f));
+  const w = P.w / mv.k, h = P.h / mv.k;
+  mv.cx = mx - px * w + w / 2; mv.cy = my - py * h + h / 2;
+  applyView(); redrawMap();
+}
+function flyTo(k, cx, cy) {
+  k = Math.min(MAXK, Math.max(1, k));
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) { Object.assign(mv, { k, cx, cy }); applyView(); redrawMap(); return; }
+  const a = { k: mv.k, cx: mv.cx, cy: mv.cy }, t0 = performance.now();
+  const step = (t) => {
+    const u = Math.min(1, (t - t0) / 300), e = 1 - Math.pow(1 - u, 3);
+    mv.k = a.k * Math.pow(k / a.k, e); mv.cx = a.cx + (cx - a.cx) * e; mv.cy = a.cy + (cy - a.cy) * e;
+    applyView();
+    if (u < 1) requestAnimationFrame(step); else redrawMap();
+  };
+  requestAnimationFrame(step);
+}
+(function () {
+  const svg = $('#phMap'), pts = new Map();
+  let start = null, pinch = 0;
+  const frac = (x, y) => { const r = svg.getBoundingClientRect(); return [(x - r.left) / r.width, (y - r.top) / r.height]; };
+  const two = () => { const [a, b] = [...pts.values()]; return { d: Math.hypot(a.x - b.x, a.y - b.y), x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }; };
+  svg.addEventListener('wheel', (e) => { e.preventDefault(); const [px, py] = frac(e.clientX, e.clientY); zoomAt(Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0018)), px, py); hideTip(); }, { passive: false });
+  svg.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY }); mapDrag.moved = false;
+    if (pts.size === 1) start = { x: e.clientX, y: e.clientY, cx: mv.cx, cy: mv.cy };
+    else if (pts.size === 2) { start = null; pinch = two().d; }
+  });
+  window.addEventListener('pointermove', (e) => {
+    if (!pts.has(e.pointerId)) return;
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pts.size === 2) { const t = two(); if (pinch) { const [px, py] = frac(t.x, t.y); zoomAt(t.d / pinch, px, py); mapDrag.moved = true; } pinch = t.d; return; }
+    if (!start || mv.k <= 1.01) return;
+    const dx = e.clientX - start.x, dy = e.clientY - start.y;
+    if (!mapDrag.moved && Math.hypot(dx, dy) < 5) return;
+    mapDrag.moved = true; svg.classList.add('panning');
+    const r = svg.getBoundingClientRect(), b = vbox();
+    mv.cx = start.cx - dx / r.width * b.w; mv.cy = start.cy - dy / r.height * b.h;
+    applyView(); if (!tipSticky) hideTip();
+  });
+  const up = (e) => { pts.delete(e.pointerId); if (pts.size < 2) pinch = 0; if (!pts.size) { start = null; svg.classList.remove('panning'); redrawMap(); } };
+  window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up);
+  svg.addEventListener('dblclick', (e) => { if (e.target.closest('.pin')) return; const [px, py] = frac(e.clientX, e.clientY); zoomAt(2, px, py); });
+  $('#mapCtl').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-z]'); if (!b) return;
+    if (b.dataset.z === 'fit') { const keep = { k: mv.k, cx: mv.cx, cy: mv.cy }; fitSites(state.overview || { projects: [] }); const t = { k: mv.k, cx: mv.cx, cy: mv.cy }; Object.assign(mv, keep); flyTo(t.k, t.cx, t.cy); }
+    else zoomAt(b.dataset.z === 'in' ? 1.8 : 1 / 1.8, 0.5, 0.5);
+  });
+})();
+
+let mapClusters = [], tipSticky = false;
+function drawMap(o) {
+  const P = window.PH_MAP, svg = $('#phMap');
+  if (!P) { svg.outerHTML = '<p class="error">ph-map.js did not load.</p>'; return; }
+  if (!mv.init) { fitSites(o); mv.init = true; }
+  applyView();
+  const s = 1 / mv.k; // keeps pins and labels the same size on screen at any zoom
+  const maxSaved = Math.max(...o.projects.map((p) => p.savedKwh), 1);
+
+  // Group sites that would sit on top of each other at country scale
+  mapClusters = [];
+  for (const p of [...o.projects].sort((a, b) => b.savedKwh - a.savedKwh)) {
+    const [x, y] = mapXY(p.lon, p.lat);
+    let c = null, best = 28 * s; // sites closer than this many map units share one pin
+    for (const k of mapClusters) { const d = Math.hypot(k.x - x, k.y - y); if (d < best) { best = d; c = k; } }
+    if (c) { c.items.push(p); c.x = (c.x * (c.items.length - 1) + x) / c.items.length; c.y = (c.y * (c.items.length - 1) + y) / c.items.length; }
+    else mapClusters.push({ x, y, items: [p] });
+  }
+  for (const c of mapClusters) {
+    const top = c.items[0];
+    const counts = {};
+    c.items.forEach((p) => { counts[p.area] = (counts[p.area] || 0) + 1; });
+    const main = Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0];
+    c.label = c.items.length === 1 ? top.city : (Object.keys(counts).length === 1 ? main : `${main} and nearby`);
+    c.r = (c.items.length === 1 ? 5 + 7 * Math.sqrt(top.savedKwh / maxSaved) : 13 + 2 * Math.sqrt(c.items.length)) * s;
+  }
+
+  // Put each label beside its pin, trying right, left, below, above until it clears the others
+  const boxes = mapClusters.map((c) => ({ x1: c.x - c.r, x2: c.x + c.r, y1: c.y - c.r, y2: c.y + c.r }));
+  const hit = (a, b) => a.x1 < b.x2 && a.x2 > b.x1 && a.y1 < b.y2 && a.y2 > b.y1;
+  [...mapClusters.keys()].sort((a, b) => mapClusters[b].r - mapClusters[a].r).forEach((i) => {
+    const c = mapClusters[i], w = c.label.length * 7.4 * s, h = 14 * s;
+    const tries = [
+      { anchor: 'start', x: c.x + c.r + 5 * s, y: c.y + 5 * s }, { anchor: 'end', x: c.x - c.r - 5 * s, y: c.y + 5 * s },
+      { anchor: 'middle', x: c.x, y: c.y + c.r + 15 * s }, { anchor: 'middle', x: c.x, y: c.y - c.r - 6 * s },
+    ];
+    const fits = (t) => {
+      const x1 = t.anchor === 'start' ? t.x : t.anchor === 'end' ? t.x - w : t.x - w / 2;
+      const box = { x1, x2: x1 + w, y1: t.y - h + 3, y2: t.y + 3 };
+      return x1 >= 2 && box.x2 <= P.w - 2 && !boxes.some((b, j) => (j !== i || b.label) && hit(box, b)) ? box : null;
+    };
+    let pick = tries.find(fits) || tries[0];
+    const box = fits(pick) || { x1: pick.x, x2: pick.x + w, y1: pick.y - h, y2: pick.y };
+    c.lab = pick; boxes.push({ ...box, label: true });
+  });
+
+  svg.innerHTML = `<rect class="sea" width="${P.w}" height="${P.h}"/><path class="land" d="${P.d}"/>` + mapClusters.map((c, i) => {
+    const name = c.items.length === 1 ? `${c.items[0].name}, ${nf(c.items[0].savedKwh)} kilowatt-hours saved` : `${c.label}, ${c.items.length} sites`;
+    return `<g class="pin${c.items.length > 1 ? ' cluster' : ''}" data-i="${i}" tabindex="0" role="button" aria-label="${esc(name)}">
+      <circle cx="${c.x.toFixed(1)}" cy="${c.y.toFixed(1)}" r="${c.r.toFixed(1)}"/>
+      ${c.items.length > 1 ? `<text class="count" style="font-size:${15 * s}px" x="${c.x.toFixed(1)}" y="${c.y.toFixed(1)}">${c.items.length}</text>` : ''}
+      <text class="plabel" style="font-size:${14 * s}px;stroke-width:${4 * s}px" x="${c.lab.x.toFixed(1)}" y="${c.lab.y.toFixed(1)}" text-anchor="${c.lab.anchor}">${esc(c.label)}</text>
+    </g>`;
+  }).join('');
+
+  svg.querySelectorAll('.pin').forEach((g) => {
+    const c = mapClusters[Number(g.dataset.i)];
+    g.addEventListener('pointerenter', () => { if (!tipSticky) showTip(g, c); });
+    g.addEventListener('pointerleave', () => { if (!tipSticky) hideTip(); });
+    g.addEventListener('focus', () => { if (!tipSticky) showTip(g, c); });
+    g.addEventListener('blur', () => { if (!tipSticky) hideTip(); });
+    g.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (mapDrag.moved) return;
+      if (c.items.length === 1) { select(c.items[0].id); return; }
+      if (mv.k < MAXK * 0.9) { hideTip(); flyTo(Math.min(MAXK, mv.k * 3), c.x, c.y); return; }
+      tipSticky = true;
+      showTip(g, c);
+    });
+    g.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); g.dispatchEvent(new MouseEvent('click', { bubbles: true })); } });
+  });
+}
+
+function showTip(g, c) {
+  const tip = $('#mapTip'), wrap = $('#mapWrap');
+  const head = c.items.length > 1
+    ? `<strong>${esc(c.label)}</strong><span>${c.items.length} sites</span>`
+    : `<strong>${esc(c.items[0].name)}</strong><span>${esc(c.items[0].area)}</span>`;
+  tip.innerHTML = head + c.items.map((p) => `<button type="button" data-open="${esc(p.id)}"><span>${esc(p.name)}</span><span>${nf(p.savedKwh)} kWh saved</span></button>`).join('');
+>>>>>>> 6298d625af79ddfe0e35473721e9d87951867055
   tip.hidden = false;
   tip.classList.toggle('sticky', tipSticky);
   const r = g.getBoundingClientRect(), w = wrap.getBoundingClientRect();
@@ -952,6 +1163,7 @@ function showTip(g, c) {
   tip.style.left = cx + 'px';
   tip.style.top = (below ? r.bottom - w.top + 8 : r.top - w.top - 8) + 'px';
 }
+<<<<<<< HEAD
 /* ---------- building view: satellite picture of the site you clicked on the map ---------- */
 const BLD = { item: null, q: '', view: 'k' };
 const NO_COORD = (p) => !Number.isFinite(Number(p.lat)) || !Number.isFinite(Number(p.lon)) || (Number(p.lat) === 12.8797 && Number(p.lon) === 121.774); // 12.8797,121.774 is the country-centre placeholder
@@ -983,6 +1195,10 @@ document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeBuild
 
 function hideTip() { tipSticky = false; const tip = $('#mapTip'); tip.hidden = true; tip.classList.remove('sticky'); }
 $('#mapTip').addEventListener('click', (e) => { const b = e.target.closest('[data-open]'); if (!b) return; const it = tipItems.find((x) => String(x.id) === b.dataset.open); if (it) { hideTip(); showBuilding(it, tipLabel); } else select(b.dataset.open); });
+=======
+function hideTip() { tipSticky = false; const tip = $('#mapTip'); tip.hidden = true; tip.classList.remove('sticky'); }
+$('#mapTip').addEventListener('click', (e) => { const b = e.target.closest('[data-open]'); if (b) select(b.dataset.open); });
+>>>>>>> 6298d625af79ddfe0e35473721e9d87951867055
 document.addEventListener('click', (e) => { if (tipSticky && !e.target.closest('#mapTip')) hideTip(); });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hideTip(); });
 
@@ -1040,7 +1256,11 @@ async function loadDetails() {
   set('mCarbon', `${u(m.carbonKg)}<small>kg</small>`); set('mCost', `\u20B1${u(m.costSaved)}`); set('mTariff', `\u20B1${u(m.tariff)}<small>/kWh</small>`);
   set('mUsage', `${u(m.usageKwh)}<small>kWh</small>${m.usageVsLast == null ? '' : `<small class="dl">${m.usageVsLast >= 0 ? '\u25B2' : '\u25BC'} ${nf(Math.abs(m.usageVsLast), 1)}% vs last month</small>`}`);
   set('eFix', `${nf(d.fixtures)}<small>pcs</small>`); set('eBefore', `${u(d.beforeKwh)}<small>kWh</small>`); set('eAfter', `${u(d.afterKwh)}<small>kWh</small>`);
+<<<<<<< HEAD
   set('eMeters', nf(e.count)); set('eStatus', e.online == null ? '-' : e.online ? 'Normal' : 'Offline'); const stEl = document.querySelector('#siteDetails [data-k="eStatus"]'); if (stEl) stEl.parentElement.classList.toggle('bad', e.online != null && !e.online);
+=======
+  set('eMeters', nf(e.count)); set('eStatus', e.online == null ? '-' : e.online ? 'Normal' : 'Offline');
+>>>>>>> 6298d625af79ddfe0e35473721e9d87951867055
   set('eW', e.watts == null ? '-' : `${nf(e.watts)}<small>W</small>`); set('eV', e.volts == null ? '-' : `${nf(e.volts, 1)}<small>V</small>`); set('eA', e.amps == null ? '-' : `${nf(e.amps, 2)}<small>A</small>`);
   set('eRead', e.totalReadingKwh == null ? '-' : `${u(e.totalReadingKwh)}<small>kWh</small>`);
   set('nLight', `${nf(no.lightingPct, 1)}<small>%</small>`); set('nTraffic', nf(no.traffic)); set('nPark', no.parkingPct == null ? '-' : `${nf(no.parkingPct, 1)}<small>%</small>`);
@@ -1071,7 +1291,10 @@ async function openProject(id) {
   setRegister($('#register'), 0);
   setStatus('idle', 'Connecting');
   const p = state.projects.find((x) => x.id === id);
+<<<<<<< HEAD
   if (!p) { openOverview(); return; }
+=======
+>>>>>>> 6298d625af79ddfe0e35473721e9d87951867055
   $('#pName').textContent = p.name;
   $('#pLoc').textContent = p.location;
   $('#kToday').textContent = $('#k30').textContent = $('#kCost').textContent = '-';
