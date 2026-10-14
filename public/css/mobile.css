@@ -1,0 +1,149 @@
+/* M-Carbon Billing System — phone & tablet layout
+   Loaded on every page after app.css and motion.css; js/mobile.js adds the top bar, the slide-in menu
+   and the scroll wrappers around wide tables. Nothing here applies above 900px, so desktop is unchanged. */
+
+.m-bar, .m-backdrop { display: none; }
+.table-wrap { -webkit-overflow-scrolling: touch; }
+.m-wrapped { overflow-x: auto; -webkit-overflow-scrolling: touch; max-width: 100%; }
+
+/* ================= Tablet and phone: the left rail becomes a slide-in menu ================= */
+@media (max-width: 900px) {
+  html { -webkit-text-size-adjust: 100%; }
+  body { overflow-x: hidden; }
+  body.nav-open { overflow: hidden; }
+  body.nav-open #lang-switch { display: none !important; }
+
+  .shell { display: block; }
+
+  /* Top bar */
+  .m-bar {
+    display: flex; align-items: center; gap: 10px;
+    position: sticky; top: 0; z-index: 40;
+    min-height: 54px; padding: env(safe-area-inset-top, 0px) 120px 0 6px;   /* right gap: the EN/KO switch floats there */
+    background: var(--ink); color: #fff;
+    box-shadow: 0 2px 10px rgba(10, 24, 21, .25);
+  }
+  .m-bar .m-menu {
+    position: relative; flex: none; width: 46px; height: 46px; padding: 0; border: 0; border-radius: 10px;
+    background: transparent; color: #fff; box-shadow: none; display: flex; align-items: center; justify-content: center;
+  }
+  .m-bar .m-menu:hover:not(:disabled), .m-bar .m-menu:active:not(:disabled) { background: #1e302d; box-shadow: none; transform: none; border: 0; }
+  .m-bar .m-menu svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+  .m-bar .m-menu svg path { transition: transform .25s var(--mo-ease, ease), opacity .2s; transform-box: fill-box; transform-origin: center; }
+  body.nav-open .m-menu svg path:nth-child(1) { transform: translateY(6px) rotate(45deg); }
+  body.nav-open .m-menu svg path:nth-child(2) { opacity: 0; }
+  body.nav-open .m-menu svg path:nth-child(3) { transform: translateY(-6px) rotate(-45deg); }
+  .m-bar .m-dot { position: absolute; top: 9px; right: 8px; width: 10px; height: 10px; border-radius: 50%; background: #9fd36a; border: 2px solid var(--ink); display: none; }
+  .m-bar.has-badge .m-dot { display: block; }
+  .m-bar .m-title { min-width: 0; line-height: 1.2; }
+  .m-bar .m-title b { display: block; font-size: .98rem; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .m-bar .m-title span { display: block; font-size: .72rem; color: #8fa39e; }
+
+  /* The rail itself: an off-canvas drawer */
+  .shell > .rail {
+    position: fixed; z-index: 60; top: 0; left: 0; bottom: 0;
+    width: min(304px, 86vw); height: 100vh; height: 100dvh;
+    flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 0;
+    padding: calc(18px + env(safe-area-inset-top, 0px)) 0 calc(18px + env(safe-area-inset-bottom, 0px));
+    overflow-y: auto; overscroll-behavior: contain;
+    transform: translateX(-104%); visibility: hidden;
+    transition: transform .3s var(--mo-ease, ease), visibility 0s linear .3s;
+    box-shadow: none; view-transition-name: none;
+  }
+  body.nav-open .shell > .rail { transform: none; visibility: visible; transition: transform .3s var(--mo-ease, ease), visibility 0s; box-shadow: 8px 0 30px rgba(0, 0, 0, .35); }
+  .shell > .rail .mark { padding: 0 24px 22px; }
+  .shell > .rail nav { flex-direction: column; flex-wrap: nowrap; }
+  .shell > .rail nav a { padding: 13px 24px; font-size: 1rem; }
+  .shell > .rail nav a:hover { padding-left: 24px; }
+  .shell > .rail .who { margin: auto 0 0; padding: 16px 24px 0; border-top: 1px solid #263b37; }
+
+  .m-backdrop {
+    display: block; position: fixed; inset: 0; z-index: 55; background: rgba(10, 24, 21, .5);
+    opacity: 0; visibility: hidden; transition: opacity .25s, visibility 0s linear .25s;
+  }
+  body.nav-open .m-backdrop { opacity: 1; visibility: visible; transition: opacity .25s, visibility 0s; }
+
+  main { padding: 20px 18px 56px; max-width: none; }
+  .tape { position: static; }
+  /* `1fr` alone lets long content stretch a column past the screen; minmax(0, 1fr) lets it shrink */
+  .split, .grid2, .grid3, .charts, .msgs-layout { grid-template-columns: minmax(0, 1fr); }
+  .split > *, .grid2 > *, .grid3 > *, .charts > *, main > * { min-width: 0; }
+  button, .btn { max-width: 100%; }
+}
+
+/* ================= Phone ================= */
+@media (max-width: 700px) {
+  body { font-size: 15px; }
+  main { padding: 16px 12px calc(48px + env(safe-area-inset-bottom, 0px)); }
+  h1 { font-size: 1.3rem; }
+
+  .page-head { flex-direction: column; align-items: stretch !important; gap: 12px; margin-bottom: 16px; }
+  .page-head > .btn, .page-head > button, .page-head > a.btn { align-self: flex-start; }
+  .page-head .actions { width: 100%; }
+  .crumb { overflow-wrap: anywhere; }
+
+  .panel > header { flex-wrap: wrap; padding: 11px 12px; }
+  .panel > .body { padding: 12px; }
+  .inline-form { grid-template-columns: 1fr 1fr; }
+
+  /* Summary figures: two across */
+  .stat-row { display: grid; grid-template-columns: 1fr 1fr; }
+  .stat { flex: none; border-right: 0; border-bottom: 1px solid var(--rule); padding: 12px 13px; min-width: 0; }
+  .stat:nth-child(odd) { border-right: 1px solid var(--rule); }
+  .stat:last-child { border-bottom: 0; }
+  .stat:last-child:nth-child(odd) { grid-column: 1 / -1; border-right: 0; }
+  .stat:nth-last-child(2):nth-child(odd) { border-bottom: 0; }
+  .stat b { font-size: 1.12rem; overflow-wrap: anywhere; }
+
+  /* Tables scroll sideways inside their panel instead of squeezing every column */
+  table { font-size: .86rem; }
+  th, td { padding: 8px 9px; }
+  .table-wrap > table[data-cols="many"], .m-wrapped > table[data-cols="many"] { min-width: 640px; }
+  .table-wrap > table[data-cols="some"], .m-wrapped > table[data-cols="some"] { min-width: 480px; }
+
+  /* Touch targets. 16px inputs stop iOS from zooming the page when a field is tapped. */
+  input, select, textarea { font-size: 16px; min-height: 44px; padding: 9px 11px; }
+  input[type="checkbox"], input[type="radio"] { min-height: 0; width: 20px; height: 20px; }
+  textarea { min-height: 84px; }
+  button, .btn { min-height: 42px; padding: 9px 16px; white-space: normal; line-height: 1.3; }
+  .seg button, .pill { white-space: nowrap; }
+  button.quiet { min-height: 36px; padding: 6px 12px; }
+  .seg button { min-height: 36px; padding: 6px 13px; }
+  .actions { gap: 8px; }
+  .actions > button, .actions > .btn { flex: 1 1 auto; text-align: center; justify-content: center; }
+  .back-btn { min-height: 38px; }
+
+  /* Charts, chat, dialogs, toasts */
+  .chart-box { height: 270px; }
+  .charts { gap: 14px; }
+  .chat-msg { max-width: 92%; }
+  .chat-form { grid-template-columns: 1fr; }
+  .msgs-thread .chat-log { height: 56vh; }
+  #pw-dialog, #pic-dialog { width: calc(100vw - 24px); max-width: 420px; padding: 18px 16px; }
+  #toast { left: 12px; right: 12px; max-width: none; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
+
+  /* Pages with their own fixed-width pieces */
+  .pm-grid { grid-template-columns: 1fr !important; }
+  .cards { grid-template-columns: repeat(auto-fill, minmax(min(236px, 100%), 1fr)); }
+  #form-panel { max-width: none !important; }
+  #q, #status { max-width: none !important; }
+
+  /* Paper documents (invoice, quotation, statement): keep the paper's proportions and scroll sideways */
+  .m-paper { overflow-x: auto; -webkit-overflow-scrolling: touch; max-width: 100%; border: 1px solid var(--rule); background: #fff; }
+  .si, .qt { min-width: 720px; }
+  .bs { overflow-x: auto; }
+}
+
+@media (max-width: 420px) {
+  .inline-form { grid-template-columns: 1fr; }
+  .stat b { font-size: 1.02rem; }
+  .shell > .rail { width: 88vw; }
+}
+
+@media print {
+  .m-bar, .m-backdrop { display: none !important; }
+}
+
+@media print {
+  .m-paper { overflow: visible !important; border: 0 !important; }
+}

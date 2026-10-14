@@ -1,0 +1,233 @@
+/* M-Carbon Billing System — motion layer
+   One shared file for every page. Entrances play on page load and in response to a click,
+   change or submit (js/motion.js toggles html.mo-on), so background polling never re-animates
+   a page. Uses the individual `translate`/`scale` properties so it never fights the
+   `transform` that buttons and SVG already use. */
+
+:root {
+  --mo-ease: cubic-bezier(.2, .8, .2, 1);
+  --mo-ease-soft: cubic-bezier(.4, 0, .2, 1);
+}
+
+/* ---------- Page-to-page crossfade (progressive enhancement: Chrome/Edge/Safari 18+) ---------- */
+@view-transition { navigation: auto; }
+.rail { view-transition-name: rail; }
+::view-transition-old(root) { animation: mo-vt-out .14s var(--mo-ease-soft) both; }
+::view-transition-new(root) { animation: mo-vt-in .26s var(--mo-ease-soft) both; }
+::view-transition-group(rail) { animation-duration: 0s; }
+@keyframes mo-vt-out { to { opacity: 0; } }
+@keyframes mo-vt-in { from { opacity: 0; } }
+
+/* ---------- Stagger indexes (CSS-only, capped at 14) ---------- */
+main > *:nth-child(1) { --mo-i: 0; }
+main > *:nth-child(2) { --mo-i: 1; }
+main > *:nth-child(3) { --mo-i: 2; }
+main > *:nth-child(4) { --mo-i: 3; }
+main > *:nth-child(5) { --mo-i: 4; }
+main > *:nth-child(6) { --mo-i: 5; }
+main > *:nth-child(7) { --mo-i: 6; }
+main > *:nth-child(8) { --mo-i: 7; }
+main > *:nth-child(9) { --mo-i: 8; }
+main > *:nth-child(10) { --mo-i: 9; }
+main > *:nth-child(11) { --mo-i: 10; }
+main > *:nth-child(12) { --mo-i: 11; }
+main > *:nth-child(13) { --mo-i: 12; }
+main > *:nth-child(14) { --mo-i: 13; }
+.stat-row > .stat:nth-child(1) { --mo-i: 0; }
+.stat-row > .stat:nth-child(2) { --mo-i: 1; }
+.stat-row > .stat:nth-child(3) { --mo-i: 2; }
+.stat-row > .stat:nth-child(4) { --mo-i: 3; }
+.stat-row > .stat:nth-child(5) { --mo-i: 4; }
+.stat-row > .stat:nth-child(6) { --mo-i: 5; }
+.stat-row > .stat:nth-child(7) { --mo-i: 6; }
+.stat-row > .stat:nth-child(8) { --mo-i: 7; }
+tbody > tr:nth-child(1) { --mo-i: 0; }
+tbody > tr:nth-child(2) { --mo-i: 1; }
+tbody > tr:nth-child(3) { --mo-i: 2; }
+tbody > tr:nth-child(4) { --mo-i: 3; }
+tbody > tr:nth-child(5) { --mo-i: 4; }
+tbody > tr:nth-child(6) { --mo-i: 5; }
+tbody > tr:nth-child(7) { --mo-i: 6; }
+tbody > tr:nth-child(8) { --mo-i: 7; }
+tbody > tr:nth-child(9) { --mo-i: 8; }
+tbody > tr:nth-child(10) { --mo-i: 9; }
+tbody > tr:nth-child(11) { --mo-i: 10; }
+tbody > tr:nth-child(12) { --mo-i: 11; }
+tbody > tr:nth-child(13) { --mo-i: 12; }
+tbody > tr:nth-child(14) { --mo-i: 13; }
+.rail nav > a:nth-child(1) { --mo-i: 0; }
+.rail nav > a:nth-child(2) { --mo-i: 1; }
+.rail nav > a:nth-child(3) { --mo-i: 2; }
+.rail nav > a:nth-child(4) { --mo-i: 3; }
+.rail nav > a:nth-child(5) { --mo-i: 4; }
+.rail nav > a:nth-child(6) { --mo-i: 5; }
+.rail nav > a:nth-child(7) { --mo-i: 6; }
+.rail nav > a:nth-child(8) { --mo-i: 7; }
+.rail nav > a:nth-child(9) { --mo-i: 8; }
+.rail nav > a:nth-child(10) { --mo-i: 9; }
+.rail nav > a:nth-child(11) { --mo-i: 10; }
+.rail nav > a:nth-child(12) { --mo-i: 11; }
+.legend > li:nth-child(1) { --mo-i: 0; }
+.legend > li:nth-child(2) { --mo-i: 1; }
+.legend > li:nth-child(3) { --mo-i: 2; }
+.legend > li:nth-child(4) { --mo-i: 3; }
+.legend > li:nth-child(5) { --mo-i: 4; }
+.legend > li:nth-child(6) { --mo-i: 5; }
+.legend > li:nth-child(7) { --mo-i: 6; }
+.legend > li:nth-child(8) { --mo-i: 7; }
+.chat-log > .chat-msg:nth-child(1) { --mo-i: 0; }
+.chat-log > .chat-msg:nth-child(2) { --mo-i: 1; }
+.chat-log > .chat-msg:nth-child(3) { --mo-i: 2; }
+.chat-log > .chat-msg:nth-child(4) { --mo-i: 3; }
+.chat-log > .chat-msg:nth-child(5) { --mo-i: 4; }
+.chat-log > .chat-msg:nth-child(6) { --mo-i: 5; }
+.chat-log > .chat-msg:nth-child(7) { --mo-i: 6; }
+.chat-log > .chat-msg:nth-child(8) { --mo-i: 7; }
+.chat-log > .chat-msg:nth-child(9) { --mo-i: 8; }
+.chat-log > .chat-msg:nth-child(10) { --mo-i: 9; }
+.msgs-threads > *:nth-child(1) { --mo-i: 0; }
+.msgs-threads > *:nth-child(2) { --mo-i: 1; }
+.msgs-threads > *:nth-child(3) { --mo-i: 2; }
+.msgs-threads > *:nth-child(4) { --mo-i: 3; }
+.msgs-threads > *:nth-child(5) { --mo-i: 4; }
+.msgs-threads > *:nth-child(6) { --mo-i: 5; }
+.msgs-threads > *:nth-child(7) { --mo-i: 6; }
+.msgs-threads > *:nth-child(8) { --mo-i: 7; }
+.msgs-threads > *:nth-child(9) { --mo-i: 8; }
+.msgs-threads > *:nth-child(10) { --mo-i: 9; }
+.msgs-threads > *:nth-child(11) { --mo-i: 10; }
+.msgs-threads > *:nth-child(12) { --mo-i: 11; }
+.grid2 > *, .grid3 > *, .split > *, .charts > *:nth-child(1) { --mo-i: 0; }
+.grid2 > *, .grid3 > *, .split > *, .charts > *:nth-child(2) { --mo-i: 1; }
+.grid2 > *, .grid3 > *, .split > *, .charts > *:nth-child(3) { --mo-i: 2; }
+.grid2 > *, .grid3 > *, .split > *, .charts > *:nth-child(4) { --mo-i: 3; }
+.grid2 > *, .grid3 > *, .split > *, .charts > *:nth-child(5) { --mo-i: 4; }
+.grid2 > *, .grid3 > *, .split > *, .charts > *:nth-child(6) { --mo-i: 5; }
+
+/* ---------- Page entrance ---------- */
+html.mo-on main > .page-head,
+html.mo-on main > .crumb,
+html.mo-on main > .notice,
+html.mo-on main > .stat-row,
+html.mo-on main > .table-wrap {
+  animation: mo-rise .5s var(--mo-ease) backwards;
+  animation-delay: calc(var(--mo-i, 0) * 70ms);
+}
+html.mo-on .page-head h1 { animation: mo-rise .55s var(--mo-ease) backwards .04s; }
+
+/* Panels are held and released by motion.js as they scroll into view */
+.panel.mo-hold { opacity: 0; translate: 0 16px; }
+.panel.mo-hold.mo-shown {
+  opacity: 1; translate: 0 0;
+  transition: opacity .55s var(--mo-ease), translate .55s var(--mo-ease);
+  transition-delay: calc(var(--mo-i, 0) * 80ms);
+}
+
+/* Summary figures: the row lands, then the numbers count up (motion.js) */
+html.mo-on .stat-row > .stat { animation: mo-rise .5s var(--mo-ease) backwards; animation-delay: calc(var(--mo-i, 0) * 70ms + .12s); }
+
+/* Table rows settle in one after another */
+html.mo-on tbody > tr { animation: mo-row .38s var(--mo-ease) backwards; animation-delay: calc(var(--mo-i, 0) * 32ms + .1s); }
+tbody > tr { transition: background-color .14s; }
+tbody > tr:hover { background: rgba(91, 154, 46, .06); }
+
+/* Lists, legends, chat */
+html.mo-on .legend > li { animation: mo-row .4s var(--mo-ease) backwards; animation-delay: calc(var(--mo-i, 0) * 60ms + .3s); }
+html.mo-on .msgs-threads > * { animation: mo-row .35s var(--mo-ease) backwards; animation-delay: calc(var(--mo-i, 0) * 30ms); }
+html.mo-on .chat-msg { animation: mo-pop .32s var(--mo-ease) backwards; }
+html.mo-on .chat-msg.mine { transform-origin: 100% 100%; }
+html.mo-on .chat-msg.theirs { transform-origin: 0 100%; }
+html.mo-on .chart-box, html.mo-on .status-pie { animation: mo-fade .7s var(--mo-ease-soft) backwards .25s; }
+
+/* Status pills and counters pop in */
+html.mo-on .pill { animation: mo-pop .38s var(--mo-ease) backwards; animation-delay: .25s; }
+.nav-badge { animation: mo-badge 2.6s ease-in-out 1.2s 2; }
+html.mo-on .nav-badge { animation: mo-pop .4s var(--mo-ease) backwards .6s, mo-badge 2.6s ease-in-out 1.2s 2; }
+
+/* Notices slide in; errors shake once */
+html.mo-on .notice { animation: mo-rise .4s var(--mo-ease) backwards; }
+.notice.bad:not([hidden]), .pw-err:not(:empty) { animation: mo-shake .45s var(--mo-ease-soft); }
+.notice.good:not([hidden]) { animation: mo-rise .4s var(--mo-ease) backwards; }
+
+/* ---------- Rail ---------- */
+.rail nav a { transition: background-color .15s, padding-left .2s var(--mo-ease), color .15s; }
+.rail nav a:hover { padding-left: 28px; }
+.rail nav a .nav-ico { transition: color .15s, translate .2s var(--mo-ease), scale .2s var(--mo-ease); }
+.rail nav a:hover .nav-ico { translate: 1px 0; scale: 1.08; }
+.rail nav a.on { position: relative; }
+.rail nav a.on::after {
+  content: ""; position: absolute; left: 0; top: 18%; bottom: 18%; width: 3px; background: #9fd36a; border-radius: 0 2px 2px 0;
+  transform-origin: 50% 50%; animation: mo-grow .45s var(--mo-ease) backwards .15s;
+}
+html.mo-first .rail nav > a { animation: mo-slide .5s var(--mo-ease) backwards; animation-delay: calc(var(--mo-i, 0) * 45ms + .05s); }
+html.mo-first .rail .mark, html.mo-first .rail .who { animation: mo-fade .6s var(--mo-ease-soft) backwards; }
+
+/* ---------- Inputs & buttons ---------- */
+input, select, textarea { transition: border-color .15s, box-shadow .2s, background-color .15s; }
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--signal); box-shadow: 0 0 0 3px rgba(12, 107, 90, .16); }
+button.primary:not(:disabled), .btn.primary { position: relative; overflow: hidden; }
+.mo-ripple {
+  position: absolute; border-radius: 50%; pointer-events: none; background: rgba(255, 255, 255, .45);
+  scale: 0; opacity: 1; animation: mo-ripple .6s var(--mo-ease-soft) forwards;
+}
+button[aria-busy="true"], button.busy { position: relative; color: transparent !important; pointer-events: none; }
+button[aria-busy="true"]::after, button.busy::after {
+  content: ""; position: absolute; inset: 0; margin: auto; width: 16px; height: 16px;
+  border: 2px solid rgba(255, 255, 255, .45); border-top-color: #fff; border-radius: 50%; animation: mo-spin .7s linear infinite;
+}
+details > summary { cursor: pointer; }
+details[open] > :not(summary) { animation: mo-rise .3s var(--mo-ease) backwards; }
+
+/* ---------- Dialogs & toasts ---------- */
+dialog[open] { animation: mo-dialog .28s var(--mo-ease) both; }
+dialog[open]::backdrop { animation: mo-fade .25s ease both; }
+#toast div { animation: mo-toast-in .38s var(--mo-ease) backwards, mo-toast-out .35s var(--mo-ease-soft) 3.85s forwards; }
+
+/* ---------- Login page ---------- */
+.login .card { animation: mo-rise .7s var(--mo-ease) backwards .15s; }
+.login .card > * { animation: mo-rise .55s var(--mo-ease) backwards; }
+.login .card > :nth-child(1) { animation-delay: .3s; } .login .card > :nth-child(2) { animation-delay: .38s; }
+.login .card > :nth-child(3) { animation-delay: .44s; } .login .card > :nth-child(5) { animation-delay: .5s; }
+.login .card > :nth-child(6) { animation-delay: .62s; }
+.login .brand-top { animation: mo-slide .7s var(--mo-ease) backwards; }
+.login .brand .art > circle:first-of-type { transform-box: fill-box; transform-origin: center; animation: mo-glow 5.5s ease-in-out infinite; }
+.login .brand .art > g[fill="none"] > circle { transform-box: fill-box; transform-origin: center; }
+.login .brand .art > g[fill="none"] > circle:nth-child(1) { animation: mo-orbit 46s linear infinite; }
+.login .brand .art > g[fill="none"] > circle:nth-child(3) { animation: mo-orbit 90s linear infinite reverse; }
+.login .brand .art > g[transform] { animation: mo-float 6.5s ease-in-out infinite; }
+.login .brand .art > g[transform]:nth-of-type(2n) { animation-duration: 7.6s; animation-delay: -2s; }
+.login .brand .art > g[transform]:nth-of-type(3n) { animation-duration: 8.4s; animation-delay: -4s; }
+.login .brand .art { animation: mo-fade 1.2s var(--mo-ease-soft) backwards .1s; }
+
+/* The live monitor refreshes itself and has its own motion: keep this layer off its data */
+.ww tbody > tr, .ww .legend > li, .ww .stat-row > .stat, .ww .pill, .ww .chart-box {
+  animation: none !important;
+}
+
+/* ---------- Keyframes ---------- */
+@keyframes mo-rise { from { opacity: 0; translate: 0 14px; } }
+@keyframes mo-row { from { opacity: 0; translate: 0 6px; } }
+@keyframes mo-slide { from { opacity: 0; translate: -14px 0; } }
+@keyframes mo-fade { from { opacity: 0; } }
+@keyframes mo-pop { from { opacity: 0; scale: .88; } }
+@keyframes mo-grow { from { scale: 1 0; } }
+@keyframes mo-shake { 0%, 100% { translate: 0 0; } 20% { translate: -6px 0; } 40% { translate: 5px 0; } 60% { translate: -3px 0; } 80% { translate: 2px 0; } }
+@keyframes mo-dialog { from { opacity: 0; translate: 0 12px; scale: .97; } }
+@keyframes mo-toast-in { from { opacity: 0; translate: 24px 0; } }
+@keyframes mo-toast-out { to { opacity: 0; translate: 24px 0; } }
+@keyframes mo-spin { to { rotate: 360deg; } }
+@keyframes mo-ripple { to { scale: 3.2; opacity: 0; } }
+@keyframes mo-badge { 0%, 100% { box-shadow: 0 0 0 0 rgba(91, 154, 46, .5); } 50% { box-shadow: 0 0 0 6px rgba(91, 154, 46, 0); } }
+@keyframes mo-glow { 0%, 100% { opacity: .75; scale: .96; } 50% { opacity: 1; scale: 1.05; } }
+@keyframes mo-orbit { to { rotate: 360deg; } }
+@keyframes mo-float { 0%, 100% { translate: 0 0; } 50% { translate: 0 -7px; } }
+
+/* ---------- Respect the user ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .panel.mo-hold { opacity: 1; translate: none; }
+  ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
+}
+@media print {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+  .panel.mo-hold { opacity: 1 !important; translate: none !important; }
+}

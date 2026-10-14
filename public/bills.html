@@ -8,6 +8,10 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/app.css">
+<link rel="stylesheet" href="/css/motion.css">
+<link rel="stylesheet" href="/css/mobile.css">
+<script src="/js/motion.js"></script>
+<script src="/js/mobile.js"></script>
 <link rel="icon" type="image/png" href="/favicon.png">
 </head>
 <body>
@@ -90,7 +94,7 @@ async function load() {
   }
   document.getElementById('list').innerHTML = bills.length ? `<table>
     <thead><tr><th>Statement</th><th>Client / site</th><th>Period</th><th>Stage</th>
-      <th class="num">Savings</th><th class="num">Billed</th><th class="num">Balance</th><th></th></tr></thead>
+      <th class="num">Savings</th><th class="num">Billed</th><th class="num">Balance</th><th></th><th></th></tr></thead>
     <tbody>${bills.map((b) => `<tr>
       <td><a href="/bill.html?id=${b.id}">${esc(b.statement_no)}</a>${b.revises_bill_id ? ' <span class="pill draft">revision</span>' : ''}</td>
       <td>${esc(b.client_name)}<br><span style="color:var(--ink-soft);font-size:.82rem">${esc(b.project_name)}</span></td>
@@ -99,6 +103,7 @@ async function load() {
       <td class="num">${kwh(b.energy_savings_kwh, 0)}</td>
       <td class="num">${money(b.amount_billed)}</td>
       <td class="num">${money(b.total_due)}</td>
+      <td class="num"><a class="btn" style="padding:4px 9px;font-size:.85rem;white-space:nowrap" href="/statement.html?id=${b.id}">View statement</a></td>
       <td class="num">${removeCell(b, me)}</td>
       </tr>`).join('')}</tbody></table>`
     : `<div class="empty">${readOnly(me) ? 'No bill has been issued to you yet. Your statement will appear here as soon as it is issued.' : 'No billing periods match these filters.'}</div>`;

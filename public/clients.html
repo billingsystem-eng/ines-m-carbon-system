@@ -8,6 +8,10 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/app.css">
+<link rel="stylesheet" href="/css/motion.css">
+<link rel="stylesheet" href="/css/mobile.css">
+<script src="/js/motion.js"></script>
+<script src="/js/mobile.js"></script>
 <link rel="icon" type="image/png" href="/favicon.png">
 </head>
 <body>
@@ -86,7 +90,7 @@ async function load() {
     d.statuses.forEach((s) => statusSelect.add(new Option(s, s)));
   }
   document.getElementById('list').innerHTML = d.clients.length ? `<table>
-      <thead><tr><th>Account</th><th>Client</th><th>City</th><th>Status</th><th class="num">Sites</th><th class="num">Statements</th><th></th></tr></thead>
+      <thead><tr><th>Account</th><th>Client</th><th>City</th><th>Status</th><th class="num">Sites</th><th class="num">Statements</th><th></th><th></th></tr></thead>
       <tbody>${d.clients.map((c) => `<tr>
         <td>${esc(c.account_no)}</td>
         <td><a href="/client.html?id=${c.id}">${esc(c.name)}</a></td>
@@ -94,6 +98,7 @@ async function load() {
         <td><span class="pill ${esc((c.status || '').replace(/\s/g, ''))}">${esc(c.status)}</span></td>
         <td class="num">${c.project_count}</td>
         <td class="num">${c.bill_count}</td>
+        <td class="num"><a class="btn" style="padding:4px 9px;font-size:.85rem;white-space:nowrap" href="/client.html?id=${c.id}">View client</a></td>
         <td class="num">${c.bill_count
           ? `<button class="quiet" disabled title="Clients with billing records can’t be deleted.">Delete</button>`
           : `<button class="quiet danger remove-client" data-edit data-id="${c.id}" data-name="${esc(c.name)}" data-count="${c.project_count}">Delete</button>`}</td>

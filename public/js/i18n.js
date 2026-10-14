@@ -125,6 +125,7 @@
  "Create revision": "수정본 생성",
  "Save and compute": "저장 및 계산",
  "View statement": "명세서 보기",
+ "View client": "고객 보기",
  "Print or save as PDF": "인쇄 또는 PDF로 저장",
  "Check before approving": "승인 전 확인",
  "Calculation record": "계산 기록",
@@ -936,7 +937,7 @@ Object.assign(KO, {
       })).observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ATTRS });
     }
     const box = document.createElement('div');
-    box.className = 'no-print';
+    box.className = 'no-print'; box.id = 'lang-switch';
     box.style.cssText = 'position:fixed;top:10px;right:12px;z-index:9999;display:flex;gap:2px;font:500 12px system-ui,sans-serif;background:#fff;border:1px solid #5b9a2e;border-radius:8px;padding:2px;box-shadow:0 1px 4px rgba(0,0,0,.12)';
     [['en', 'EN'], ['ko', '한국어']].forEach(([code, label]) => {
       const b = document.createElement('button');
